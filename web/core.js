@@ -1,23 +1,61 @@
 // Logica pura (senza DOM): griglia, generatore motivi, conteggi, lettura per riga.
 (function (root) {
-  const DEFAULT_PALETTE = [
-    { cod: 'DB 201', nome: 'Chiaro', hex: '#f4f4f2' },
-    { cod: 'DB 051', nome: 'Medio', hex: '#b9b9b9' },
-    { cod: 'DB 1812', nome: 'Scuro', hex: '#6a6a6c' },
-    { cod: '', nome: 'Colore 4', hex: '#2b2b2b' },
-  ];
+  // ---- catalogo Miyuki Delica 11/0 (web/delica.js) ----
+  let _idx = null;
+  function indice() {
+    if (!_idx) { _idx = new Map(); (root.DELICA || []).forEach((r) => _idx.set(r[0], r)); }
+    return _idx;
+  }
+  // "DB 201", "db0201", "201" -> "201"; "DB 22L" -> "22L"; altrimenti null
+  function normCodice(s) {
+    const m = /^\s*(?:db)?[\s-]*0*(\d+)\s*([a-z]{0,2})\s*$/i.exec(String(s || ''));
+    return m ? String(parseInt(m[1], 10)) + m[2].toUpperCase() : null;
+  }
+  // "201" -> "DB 201" (almeno 3 cifre, come negli schemi: DB 051, DB 1812)
+  function fmtCodice(k) {
+    const m = /^(\d+)(.*)$/.exec(k);
+    return 'DB ' + m[1].padStart(3, '0') + m[2];
+  }
+  function colore(cod) {
+    const k = normCodice(cod), r = k && indice().get(k);
+    return r ? { cod: fmtCodice(r[0]), nome: r[1], hex: r[2], fuori: !!r[3] } : null;
+  }
+  // ricerca per codice (es. "1812", "db 20") o per parole del nome (es. "crystal ab")
+  function cerca(q, max) {
+    q = String(q || '').trim().toLowerCase();
+    if (!q) return [];
+    const k = normCodice(q), out = [];
+    const toks = q.split(/\s+/);
+    for (const r of indice().values()) {
+      const nome = r[1].toLowerCase();
+      const perCodice = k && (r[0] === k ? 0 : (/^\d/.test(q.replace(/^db[\s-]*/i, '')) && r[0].startsWith(k) ? 1 : 9));
+      const perNome = toks.every((t) => nome.indexOf(t) >= 0) ? 2 : 9;
+      const rango = Math.min(perCodice === undefined || perCodice === null ? 9 : perCodice, perNome);
+      if (rango < 9) out.push([rango, r]);
+    }
+    out.sort((x, y) => x[0] - y[0] || parseInt(x[1][0], 10) - parseInt(y[1][0], 10));
+    return out.slice(0, max || 30).map(([, r]) => ({ cod: fmtCodice(r[0]), nome: r[1], hex: r[2], fuori: !!r[3] }));
+  }
 
-  // Libreria di colori generici (nomi e tinte indicative, NON codici Delica): il codice DB lo inserisci tu.
-  const LIBRERIA = [
-    ['Bianco', '#f5f5f0'], ['Avorio', '#efe6cf'], ['Crema', '#e8d9b0'], ['Grigio chiaro', '#c4c4c4'],
-    ['Grigio', '#8c8c8c'], ['Grigio scuro', '#5a5a5c'], ['Nero', '#1c1c1c'], ['Argento', '#b8bcc2'],
-    ['Oro', '#c9a227'], ['Bronzo', '#8c6a3a'], ['Marrone', '#6b4226'], ['Beige', '#cdb48a'],
-    ['Rosa chiaro', '#f4c2cf'], ['Rosa', '#e46f98'], ['Fucsia', '#c2185b'], ['Rosso', '#c62828'],
-    ['Bordeaux', '#7b1e2b'], ['Arancione', '#ef7d1a'], ['Corallo', '#f0816a'], ['Giallo', '#f2c818'],
-    ['Verde chiaro', '#a8d672'], ['Verde', '#3a9b4a'], ['Verde scuro', '#1f5a3a'], ['Acqua', '#8fd6cf'],
-    ['Turchese', '#1aa7a8'], ['Azzurro', '#7db9e8'], ['Blu', '#2a5db0'], ['Blu notte', '#1b2a56'],
-    ['Lilla', '#b9a1d9'], ['Viola', '#6a3d9a'],
-  ].map(([nome, hex]) => ({ cod: '', nome, hex }));
+  // palette di partenza: i tre colori degli schemi di riferimento (DB 201, DB 051, DB 1812) + uno scuro
+  function paletteDefault() {
+    const p = ['201', '51', '1812'].map(colore);
+    const fb = [{ cod: 'DB 201', nome: 'Chiaro', hex: '#E8E5E7' }, { cod: 'DB 051', nome: 'Medio', hex: '#9FA1AD' }, { cod: 'DB 1812', nome: 'Scuro', hex: '#4C9290' }];
+    return p.map((x, i) => ({ ...(x || fb[i]) })).concat([{ cod: '', nome: 'Colore 4', hex: '#2B2B2B' }]);
+  }
+
+  // Modelli di riferimento (braccialetti 7/10/16 x 100 degli schemi): rombi alternati scuro (DB 1812) / medio (DB 051)
+  // su fondo chiaro (DB 201). dw/dh/tA/tB tarati per riprodurre i conteggi degli schemi (es. 7x100 = 220/200/280 perline).
+  const MODELLI = [
+    { id: '7x100', nome: 'Braccialetto 7 × 100', w: 7, h: 100, dw: 8, dh: 10, tA: 0.8, tB: 0.8 },
+    { id: '10x100', nome: 'Braccialetto 10 × 100', w: 10, h: 100, dw: 9, dh: 11, tA: 0.95, tB: 0.7 },
+    { id: '16x100', nome: 'Braccialetto 16 × 100', w: 16, h: 100, dw: 14, dh: 18, tA: 0.95, tB: 0.7 },
+  ];
+  // palette e griglia di un modello: A = DB 201, B = DB 051, C = DB 1812
+  function applicaModello(m) {
+    const palette = paletteDefault().slice(0, 3);
+    return { palette, w: m.w, h: m.h, celle: rombiAlt(m.w, m.h, { dw: m.dw, dh: m.dh, tA: m.tA, tB: m.tB, a: 2, b: 1, sfondo: 0 }) };
+  }
 
   // PRNG con seme (mulberry32): stesso seme = stesso disegno
   function prng(seed) {
@@ -64,9 +102,30 @@
       Array.from({ length: w }, (_, c) => (celle[r] && celle[r][c] !== undefined ? celle[r][c] : fill || 0)));
   }
 
+  // Rombi alternati a reticolo (come negli schemi di riferimento): rombi del colore A e del colore B
+  // sfalsati di mezzo passo, con i bordi in colore di sfondo. dw/dh = larghezza/altezza di un rombo in perline/righe;
+  // tA/tB = quanto e' pieno il rombo (1 = i rombi si toccano).
+  function rombiAlt(w, h, o) {
+    const dw = Math.max(2, o.dw), dh = Math.max(2, o.dh);
+    const cx0 = (w - 1) / 2, cy0 = (dh - 1) / 2;
+    const piega = (v, p) => { v = ((v % p) + p) % p; return v > p / 2 ? p - v : v; };
+    const g = nuovaGriglia(w, h, o.sfondo);
+    for (let r = 0; r < h; r++) for (let c = 0; c < w; c++) {
+      const dA = piega(c - cx0, dw) / (dw / 2) + piega(r - cy0, dh) / (dh / 2);
+      const dB = piega(c - cx0 - dw / 2, dw) / (dw / 2) + piega(r - cy0 - dh / 2, dh) / (dh / 2);
+      if (dA <= o.tA && dA <= dB) g[r][c] = o.a;
+      else if (dB <= o.tB) g[r][c] = o.b;
+    }
+    return g;
+  }
+
   // rings: indici palette dal centro verso lo sfondo
-  function genera(tipo, w, h, p, rings) {
+  function genera(tipo, w, h, p, rings, extra) {
     const n = rings.length;
+    if (tipo === 'rombi-alt') {
+      const e = extra || {};
+      return rombiAlt(w, h, { dw: e.dw || w, dh: e.dh || Math.round((e.dw || w) * 1.23), tA: e.tA || 0.9, tB: e.tB || 0.75, a: rings[0], b: rings[1], sfondo: rings[n - 1] });
+    }
     const g = nuovaGriglia(w, h, rings[n - 1]);
     const cx = (w - 1) / 2;
     for (let r = 0; r < h; r++) {
@@ -147,6 +206,6 @@
     }
   }
 
-  const api = { LIBRERIA, prng, casuale, DEFAULT_PALETTE, lettera, nuovaGriglia, ridimensiona, genera, ripetiModulo, conteggi, rp, stimaMisure, lettura, riempi };
+  const api = { normCodice, fmtCodice, colore, cerca, paletteDefault, MODELLI, applicaModello, rombiAlt, prng, casuale, lettera, nuovaGriglia, ridimensiona, genera, ripetiModulo, conteggi, rp, stimaMisure, lettura, riempi };
   if (typeof module !== 'undefined') module.exports = api; else root.Core = api;
 })(typeof window !== 'undefined' ? window : globalThis);

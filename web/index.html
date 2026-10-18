@@ -33,9 +33,11 @@ th{color:var(--mut);font-weight:600}
 #wrap{overflow:auto;max-height:calc(100vh - 80px);background:#fff;border:1px solid var(--line);border-radius:8px;padding:10px}
 #sheet{display:none}
 small{color:var(--mut)}
+#risultati{max-height:160px;overflow:auto;margin:4px 0}.ris{padding:3px 4px;cursor:pointer;border-radius:4px;font-size:13px}.ris:hover{background:#e3efed}
+footer{padding:8px 14px;color:var(--mut);font-size:12px}
 @media(max-width:800px){main{grid-template-columns:1fr}}
 @media print{
- body{background:#fff}header,main{display:none}
+ body{background:#fff}header,main,footer{display:none}
  #sheet{display:block;padding:0}
  #sheet img{max-width:100%;max-height:60vh}
  #sheet h1{font-size:18px;margin:0 0 6px}
@@ -67,6 +69,7 @@ small{color:var(--mut)}
   <label>Zoom <input type="range" id="zoom" min="10" max="40" value="22"></label>
   <label><span>Lettere nelle celle</span><input type="checkbox" id="lettere" checked></label>
   <button id="ridim">Applica misure</button>
+  <div class="row" style="margin-top:6px"><select id="modello"></select><button id="applica-modello">Applica modello</button></div>
  </div>
  <div class="card"><h2>Strumenti</h2>
   <div class="row"><button id="t-penna" class="on">Pennello</button><button id="t-riempi">Riempi</button>
@@ -74,8 +77,10 @@ small{color:var(--mut)}
   <label><span>Simmetria (specchio)</span><input type="checkbox" id="simm"></label>
  </div>
  <div class="card"><h2>Colori (Delica DB)</h2><div id="pal"></div>
-  <div class="row"><button id="addcol">+ colore</button><select id="libreria"></select></div>
-  <small>Clic sulla riga per sceglierlo. Codici e tinte sono modificabili.</small>
+  <input type="text" id="cerca" placeholder="Cerca Delica: codice (1812) o nome (crystal)" style="width:100%">
+  <div id="risultati"></div>
+  <button id="addcol">+ colore libero</button>
+  <small>Scrivi un codice DB nella riga di un colore e premi Invio: nome e tinta si compilano da soli. Tinte approssimate.</small>
  </div>
  <div class="card"><h2>Generatore casuale</h2>
   <div id="r-col"></div>
@@ -87,8 +92,12 @@ small{color:var(--mut)}
   <small>Stesso seme = stesso disegno. 0 righe = nessuna ripetizione.</small>
  </div>
  <div class="card"><h2>Generatore motivo</h2>
-  <label>Motivo <select id="g-tipo"><option value="rombi">Rombi</option><option value="chevron">Chevron</option><option value="righe">Righe</option></select></label>
+  <label>Motivo <select id="g-tipo"><option value="rombi-alt">Rombi alternati (come schemi)</option><option value="rombi">Rombi</option><option value="chevron">Chevron</option><option value="righe">Righe</option></select></label>
   <label>Righe per modulo <input type="number" id="g-p" min="2" max="120" value="14"></label>
+  <label>Rombo alt.: larghezza <input type="number" id="g-dw" min="2" max="60" value="9"></label>
+  <label>Rombo alt.: altezza <input type="number" id="g-dh" min="2" max="120" value="11"></label>
+  <label>Rombo alt.: bordo <select id="g-bordo"><option value="sottile">sottile</option><option value="medio" selected>medio</option><option value="largo">largo</option></select></label>
+  <small>Rombi alternati: Anello 1 = rombo A, Anello 2 = rombo B, Anello 4 = sfondo.</small>
   <label>Anello 1 (centro) <select id="g-c0"></select></label>
   <label>Anello 2 <select id="g-c1"></select></label>
   <label>Anello 3 <select id="g-c2"></select></label>
@@ -102,7 +111,9 @@ small{color:var(--mut)}
  <div id="wrap"><canvas id="cv"></canvas></div>
 </section>
 </main>
+<footer>Codici e tinte Miyuki Delica da <a href="https://github.com/makebead/craft-color-codes">makebead/craft-color-codes</a> (CC BY 4.0, foto ufficiali Miyuki): tinte approssimate, controlla sempre la bustina.</footer>
 <div id="sheet"></div>
+<script src="delica.js"></script>
 <script src="core.js"></script>
 <script src="app.js"></script>
 </body>

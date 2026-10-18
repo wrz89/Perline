@@ -5,6 +5,11 @@
 - **index.html**: puoi anche aprire direttamente il file `web/index.html` nel browser. Funziona senza server: i progetti si salvano nella memoria del browser. Per sicurezza usa **Esporta** per avere un file di backup e **Importa** per riaprirlo (anche su un altro PC).
 - **Python**: `avvia_perline.bat` (serve Python 3). Aggiornamento con `aggiorna_perline.bat`.
 
+## Modelli pronti
+- In **Griglia → Modello** trovi i tre braccialetti **7 × 100**, **10 × 100** e **16 × 100**: rombi alternati scuro / medio su fondo chiaro, con i colori DB 201, DB 051 e DB 1812. Premi **Applica modello** (sostituisce palette e griglia).
+- I modelli sono tarati sugli schemi di riferimento: il 7 × 100 dà esattamente 220 / 200 / 280 perline (1,1 / 1,0 / 1,4 rp.); gli altri due si discostano di pochissimo (10 × 100: 310 / 294 / 396; 16 × 100: 488 / 484 / 628).
+- Cambia i colori del modello dal catalogo: la disposizione resta, cambia solo la tinta.
+
 ## Il primo progetto in 2 minuti
 - In **Griglia** scegli la tecnica (Telaio o Peyote), la larghezza in perline e la lunghezza in righe, poi **Applica misure**.
 - In **Colori** clicca un colore per sceglierlo e disegna sulla griglia: trascina per dipingere. **Riempi** colora un'area intera, **Simmetria** specchia ogni gesto, **Annulla/Ripeti** (anche Ctrl+Z / Ctrl+Y).
@@ -12,13 +17,16 @@
 
 ## Colori
 - Ogni colore ha una **lettera** (A, B, C…), usata nelle celle, nella legenda e nella lettura per riga.
-- Per ogni colore puoi cambiare tinta, **codice Delica (DB)** e nome. Premi **×** per rimuovere un colore non usato.
-- **+ colore** ne aggiunge uno casuale; **+ dalla libreria colori…** aggiunge uno di 30 colori comuni (bianco, nero, grigi, rosa, blu, verdi…). Le tinte sono indicative: **il codice DB va scritto da te** guardando la bustina o il catalogo, perché non esiste una tabella ufficiale integrata.
-- Attenzione: i colori preimpostati (DB 201, DB 051, DB 1812) sono solo segnaposto in tonalità di grigio. Negli schemi stampati in bianco e nero non si vede il colore vero, e il codice DB indica il colore reale (ad esempio DB 1812 è un aqua chiaro satinato, non un grigio). Imposta la tinta giusta con il selettore.
+- **Catalogo Miyuki Delica 11/0 integrato (1.288 colori).** Nel campo *Cerca Delica* scrivi un codice (`1812`, `db 201`) o parole del nome (`crystal ab`, `opaque white`) e clicca il risultato: il colore si aggiunge con codice, nome e tinta.
+- In alternativa scrivi il **codice DB** nella riga di un colore e premi Invio: nome e tinta si compilano da soli. I codici nel formato degli schemi (`DB 051`, `DB 1812`) funzionano, anche senza zeri o senza «DB».
+- Le **tinte sono approssimate** (media delle foto ufficiali Miyuki): controlla sempre la bustina, specialmente per lucidi, metallici e rivestiti. I colori fuori produzione sono segnalati.
+- **+ colore libero** aggiunge un colore tuo, con tinta e nome a piacere. **×** rimuove un colore non usato.
+- I colori di partenza sono quelli degli schemi di riferimento: **DB 201** (Opaque White Luster), **DB 051** (Transparent Crystal AB), **DB 1812** (Color-Lined Silk Green Luster). Negli schemi stampati in bianco e nero i colori vengono resi in grigio, ma i codici sono quelli.
 
 ## Generatore motivi (rombi, chevron, righe)
 - Scegli **Motivo**, le **righe per modulo** (il disegno si ripete ogni N righe) e i 4 anelli, dal centro allo sfondo. Premi **Genera su tutta la griglia**.
 - **Ripeti le prime righe del modulo** prende le prime N righe che hai disegnato a mano e le ripete fino alla fine: comodo per fare un modulo piccolo e allungarlo.
+- **Rombi alternati (come schemi)**: rombi di due colori sfalsati di mezzo passo con bordo di sfondo. Imposta larghezza e altezza del rombo (in perline e righe) e lo spessore del bordo; Anello 1 = rombo A, Anello 2 = rombo B, Anello 4 = sfondo. Per rombi regolari usa altezza ≈ 1,2 × larghezza.
 
 ## Generatore casuale
 - Spunta i **colori** da usare, scegli la **simmetria** (specchio sinistra/destra, o doppio), la **dimensione dei blocchi** (1 = perlina singola, 2–4 = blocchi più grandi) e, se vuoi, **Ripeti ogni N righe** per un motivo che si ripete.
@@ -43,4 +51,7 @@
 - **La pagina non si apre**: lascia aperta la finestra nera e vai su http://127.0.0.1:8765 nel browser.
 - **Ho perso i progetti**: se avevi usato index.html su un altro browser o computer non li trovi; esporta sempre un backup.
 - Altro? Scrivimi cosa vedi e cosa ti aspettavi.
+
+## Crediti
+- Codici e tinte Miyuki Delica: [makebead/craft-color-codes](https://github.com/makebead/craft-color-codes), licenza CC BY 4.0, basato sul catalogo e sulle foto ufficiali Miyuki. Perline Delica e Miyuki sono marchi dei rispettivi proprietari; Perline non è affiliato a Miyuki.
 

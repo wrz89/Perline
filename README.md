@@ -42,3 +42,6 @@ python perline.py            # avvia l'app
 python -m pytest tests
 node tests/core.test.js
 ```
+
+## Crediti
+Codici e tinte Miyuki Delica da [makebead/craft-color-codes](https://github.com/makebead/craft-color-codes) (CC BY 4.0), basati sul catalogo e sulle foto ufficiali Miyuki. Tinte approssimate.

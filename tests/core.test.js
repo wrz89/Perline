@@ -1,4 +1,5 @@
 const assert = require('assert');
+require('../web/delica.js');
 const C = require('../web/core.js');
 
 // lettura run-length
@@ -43,5 +44,15 @@ assert.strictEqual(rm.length, 30); assert.deepStrictEqual(rm[0], rm[6]);
 assert.deepStrictEqual(rm[0], rm[5]); // specchio verticale nel modulo
 const rb = C.casuale(8, 8, { ...o, blocco: 2, simm: 'nessuna' });
 assert.deepStrictEqual(rb[0], rb[1]);
-assert.ok(C.LIBRERIA.length >= 25);
+// catalogo Delica
+assert.strictEqual(C.normCodice('DB 201'), '201'); assert.strictEqual(C.normCodice('db0051'), '51'); assert.strictEqual(C.normCodice('rosso'), null);
+assert.strictEqual(C.colore('DB 1812').cod, 'DB 1812'); assert.strictEqual(C.colore('51').cod, 'DB 051');
+assert.ok(C.colore('DB 201').hex.startsWith('#')); assert.strictEqual(C.colore('DB 99999'), null);
+assert.ok(C.cerca('crystal ab', 5).length > 0); assert.strictEqual(C.cerca('1812', 3)[0].cod, 'DB 1812');
+assert.ok(DELICA.length > 1000);
+// modelli: i conteggi del 7x100 coincidono con lo schema di riferimento (220 / 200 / 280)
+const mo = C.applicaModello(C.MODELLI[0]);
+assert.deepStrictEqual(C.conteggi(mo.celle, 3), [220, 200, 280]);
+for (const m of C.MODELLI) { const x = C.applicaModello(m); assert.strictEqual(x.celle.length, 100); assert.strictEqual(x.celle[0].length, m.w);
+  x.celle.forEach((r) => assert.deepStrictEqual(r, r.slice().reverse())); }
 console.log('core ok');

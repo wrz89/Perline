@@ -9,9 +9,8 @@
   let undoSt = [], redoSt = [];
 
   function nuovoProgetto() {
-    const palette = C.DEFAULT_PALETTE.map((c) => ({ ...c }));
-    const rings = [2, 1, 0, 0];
-    return { nome: '', tecnica: 'telaio', w: 10, h: 56, palette, celle: C.genera('rombi', 10, 56, 14, rings), opz: { ...OPZ } };
+    const m = C.applicaModello(C.MODELLI[1]);
+    return { nome: '', tecnica: 'telaio', w: m.w, h: m.h, palette: m.palette, celle: m.celle, opz: { ...OPZ } };
   }
 
   function msg(t) { $('msg').textContent = t; clearTimeout(msg.t); msg.t = setTimeout(() => ($('msg').textContent = ''), 3500); }
@@ -102,6 +101,11 @@
       d.addEventListener('click', () => { colore = i; disegnaPalette(); });
       hx.addEventListener('input', () => { c.hex = hx.value; ridisegna(); });
       cod.addEventListener('input', () => { c.cod = cod.value; materiali(); });
+      cod.addEventListener('change', () => {
+        const x = C.colore(cod.value);
+        if (x) { c.cod = x.cod; c.nome = x.nome; c.hex = x.hex; disegnaPalette(); ridisegna(); msg(x.cod + ' ' + x.nome); }
+        else if (cod.value.trim()) msg('Codice non nel catalogo Delica: tinta e nome restano manuali');
+      });
       nome.addEventListener('input', () => { c.nome = nome.value; materiali(); });
       rm.addEventListener('click', (e) => { e.stopPropagation(); rimuoviColore(i); });
       $('pal').appendChild(d);
@@ -152,12 +156,20 @@
     snapshot(); S.celle = C.ridimensiona(S.celle, w, h, cnt.indexOf(Math.max(...cnt)));
     S.w = w; S.h = h; sync();
   };
+  $('modello').innerHTML = '<option value="">Modello…</option>' + C.MODELLI.map((m) => `<option value="${m.id}">${m.nome}</option>`).join('');
+  $('applica-modello').onclick = () => {
+    const m = C.MODELLI.find((x) => x.id === $('modello').value); if (!m) return msg('Scegli un modello');
+    if (!confirm('Il modello sostituisce palette e griglia attuali. Continuare?')) return;
+    const x = C.applicaModello(m); snapshot(); S.tecnica = 'telaio'; S.palette = x.palette; S.celle = x.celle; S.w = x.w; S.h = x.h; colore = 0;
+    $('g-dw').value = m.dw; $('g-dh').value = m.dh; sync(); msg(m.nome + ' applicato');
+  };
   $('t-penna').onclick = () => { strumento = 'penna'; $('t-penna').className = 'on'; $('t-riempi').className = ''; };
   $('t-riempi').onclick = () => { strumento = 'riempi'; $('t-riempi').className = 'on'; $('t-penna').className = ''; };
   $('undo').onclick = annulla; $('redo').onclick = ripeti;
   $('genera').onclick = () => {
     const rings = ['g-c0', 'g-c1', 'g-c2', 'g-c3'].map((id) => +$(id).value);
-    snapshot(); S.celle = C.genera($('g-tipo').value, S.w, S.h, Math.max(2, +$('g-p').value || 2), rings); ridisegna(); disegnaPalette();
+    const bordo = { sottile: [0.95, 0.8], medio: [0.9, 0.75], largo: [0.8, 0.6] }[$('g-bordo').value];
+    snapshot(); S.celle = C.genera($('g-tipo').value, S.w, S.h, Math.max(2, +$('g-p').value || 2), rings, { dw: +$('g-dw').value, dh: +$('g-dh').value, tA: bordo[0], tB: bordo[1] }); ridisegna(); disegnaPalette();
   };
   $('ripeti').onclick = () => {
     const p = Math.max(1, Math.min(S.h, +$('g-p').value || 1));
@@ -234,12 +246,18 @@
     if (confirm('Chiudere Perline?')) { try { await api('POST', '/api/esci'); } catch (e) {} document.body.innerHTML = '<p style="padding:20px">Perline chiuso. Puoi chiudere questa scheda.</p>'; }
   };
 
-  // ---- libreria colori e generatore casuale ----
-  $('libreria').innerHTML = '<option value="">+ dalla libreria colori…</option>' + C.LIBRERIA.map((c, i) => `<option value="${i}">${c.nome}</option>`).join('');
-  $('libreria').onchange = () => {
-    const i = $('libreria').value; $('libreria').value = ''; if (i === '' || S.palette.length >= 26) return;
-    S.palette.push({ ...C.LIBRERIA[+i] }); colore = S.palette.length - 1; disegnaPalette(); msg('Aggiunto: scrivi il codice DB accanto al colore');
-  };
+  // ---- catalogo Delica e generatore casuale ----
+  function aggiungiColore(x) {
+    const gia = S.palette.findIndex((p) => p.cod === x.cod);
+    if (gia >= 0) { colore = gia; disegnaPalette(); return msg(x.cod + ' e\' gia\' nella palette'); }
+    if (S.palette.length >= 26) return msg('Massimo 26 colori');
+    S.palette.push({ cod: x.cod, nome: x.nome, hex: x.hex }); colore = S.palette.length - 1; disegnaPalette();
+  }
+  $('cerca').addEventListener('input', () => {
+    const r = C.cerca($('cerca').value, 25);
+    $('risultati').innerHTML = r.map((x, i) => `<div class="ris" data-i="${i}"><span class="sw" style="background:${x.hex}"></span> <b>${x.cod}</b> ${esc(x.nome)}${x.fuori ? ' <small>(fuori produzione)</small>' : ''}</div>`).join('') || ($('cerca').value ? '<small>Nessun risultato</small>' : '');
+    $('risultati').querySelectorAll('.ris').forEach((el) => el.addEventListener('click', () => aggiungiColore(r[+el.dataset.i])));
+  });
   function listaCasuale() {
     const sel = Array.from(document.querySelectorAll('#r-col input:checked')).map((x) => +x.value);
     const prima = new Set(sel);
