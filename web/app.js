@@ -110,7 +110,7 @@
       rm.addEventListener('click', (e) => { e.stopPropagation(); rimuoviColore(i); });
       $('pal').appendChild(d);
     });
-    opzioniColore(); if (window.__rc) listaCasuale();
+    opzioniColore(); if (window.__rc) { listaCasuale(); galleriaMotivi(); }
   }
   function rimuoviColore(i) {
     S.palette.splice(i, 1);
@@ -250,6 +250,38 @@
   $('esci').onclick = async () => {
     if (!usaServer) return msg('Puoi chiudere questa scheda del browser');
     if (confirm('Chiudere Perline?')) { try { await api('POST', '/api/esci'); } catch (e) {} document.body.innerHTML = '<p style="padding:20px">Perline chiuso. Puoi chiudere questa scheda.</p>'; }
+  };
+
+  // ---- libreria motivi ----
+  let motivoSel = null;
+  function opzMotivo() {
+    return { c1: +$('m-c1').value, c2: +$('m-c2').value, c3: +$('m-c3').value, sfondo: +$('m-bg').value, scala: +$('m-scala').value,
+      gap: $('m-gap').value === '' ? undefined : +$('m-gap').value, bordo: +$('m-bordo').value };
+  }
+  function galleriaMotivi() {
+    const n = S.palette.length, def = { 'm-c1': Math.min(2, n - 1), 'm-c2': Math.min(1, n - 1), 'm-c3': Math.min(2, n - 1), 'm-bg': 0 };
+    Object.keys(def).forEach((id) => {
+      const sel = $(id), v = sel.value;
+      sel.innerHTML = S.palette.map((c, k) => `<option value="${k}">${C.lettera(k)} - ${esc(c.cod || c.nome)}</option>`).join('');
+      sel.value = v !== '' && +v < n ? v : String(def[id]);
+    });
+    const o = { ...opzMotivo(), scala: 1, gap: 1, bordo: 0 }, g = $('m-gal');
+    g.innerHTML = '';
+    window.MOTIVI.forEach((m) => {
+      const cvm = document.createElement('canvas'), N = 14, z = 5; cvm.width = N * z; cvm.height = N * z;
+      const x = cvm.getContext('2d'), gr = C.applicaMotivo(m, N, N, o);
+      gr.forEach((r, y) => r.forEach((v, c) => { x.fillStyle = (S.palette[v] || { hex: '#f0f' }).hex; x.fillRect(c * z, y * z, z, z); }));
+      const d = document.createElement('div'); d.className = 'mt' + (motivoSel === m.id ? ' sel' : ''); d.title = m.nome; d.appendChild(cvm);
+      d.addEventListener('click', () => { motivoSel = m.id; $('m-nome').textContent = 'Selezionato: ' + m.nome + (m.tipo === 'periodico' ? ' (si ripete su tutta la larghezza)' : ''); galleriaMotivi(); });
+      g.appendChild(d);
+    });
+  }
+  ['m-c1', 'm-c2', 'm-c3', 'm-bg'].forEach((id) => $(id).addEventListener('change', galleriaMotivi));
+  $('m-applica').onclick = () => {
+    const m = window.MOTIVI.find((x) => x.id === motivoSel); if (!m) return msg('Scegli un motivo dalla galleria');
+    const o = opzMotivo(), larg = m.righe[0].length * o.scala;
+    snapshot(); S.celle = C.applicaMotivo(m, S.w, S.h, o); ridisegna(); disegnaPalette();
+    msg(m.tipo === 'singolo' && larg > S.w ? `Motivo applicato (largo ${larg}, tagliato sulla griglia di ${S.w}): usa un motivo piu' piccolo o allarga la griglia` : 'Motivo applicato: ' + m.nome);
   };
 
   // ---- catalogo Delica e generatore casuale ----

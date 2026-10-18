@@ -1,5 +1,6 @@
 const assert = require('assert');
 require('../web/delica.js');
+require('../web/motivi.js');
 const C = require('../web/core.js');
 
 // lettura run-length
@@ -102,4 +103,23 @@ assert.strictEqual(C.opzioniFoto(20, 100, 100, C.PERLINE, 60).find((x) => x.cons
   const f = new Uint8ClampedArray(200 * 100 * 4); for (let y = 0; y < 100; y++) for (let x = 0; x < 200; x++) { const k = (y * 200 + x) * 4; f[k] = x; f[k + 1] = y * 2; f[k + 2] = 128; f[k + 3] = 255; }
   assert.strictEqual(C.rilevaGriglia({ w: 200, h: 100, data: f }), null);
 }
+// libreria motivi
+assert.ok(MOTIVI.length >= 30);
+for (const m of MOTIVI) {
+  const w0 = m.righe[0].length; assert.ok(m.righe.every((r) => r.length === w0), m.id + ': righe di larghezza diversa');
+  assert.ok(m.righe.join('').replace(/[.123]/g, '') === '', m.id + ': caratteri non validi');
+  assert.ok(['singolo', 'periodico'].includes(m.tipo));
+  for (const w of [7, 10, 16, 21]) {
+    const g = C.applicaMotivo(m, w, 60, { c1: 1, c2: 2, c3: 3, sfondo: 0, scala: 1 });
+    assert.strictEqual(g.length, 60); assert.ok(g.every((r) => r.length === w));
+    assert.ok(g.flat().some((v) => v !== 0), m.id + ' vuoto su larghezza ' + w);
+  }
+}
+// i motivi simmetrici restano simmetrici su larghezza dispari
+for (const [id, W] of [['fiore4', 15], ['cuore', 15], ['stella5', 15], ['croce', 15], ['zigzag', 16], ['losanghe', 16]]) {
+  const g = C.applicaMotivo(MOTIVI.find((m) => m.id === id), W, 40, { c1: 1, c2: 2, c3: 3, sfondo: 0, scala: 1 });
+  g.forEach((r) => assert.deepStrictEqual(r, r.slice().reverse(), id));
+}
+const g2 = C.applicaMotivo(MOTIVI.find((m) => m.id === 'cuore'), 16, 30, { c1: 1, c2: 2, c3: 3, sfondo: 0, scala: 2, bordo: 1 });
+assert.strictEqual(g2[5][0], 1); assert.strictEqual(g2[5][15], 1);
 console.log('core ok');

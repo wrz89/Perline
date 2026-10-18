@@ -10,6 +10,9 @@
 - I modelli sono tarati sugli schemi di riferimento: il 7 × 100 dà esattamente 220 / 200 / 280 perline (1,1 / 1,0 / 1,4 rp.); gli altri due si discostano di pochissimo (10 × 100: 310 / 294 / 396; 16 × 100: 488 / 484 / 628).
 - Cambia i colori del modello dal catalogo: la disposizione resta, cambia solo la tinta.
 
+## Schermata
+- Lo schema resta sempre fermo e visibile a destra: **scorre solo il menu a sinistra**. Se lo schema è lungo scorre dentro il suo riquadro.
+
 ## Il primo progetto in 2 minuti
 - In **Griglia** scegli la tecnica (Telaio o Peyote), la larghezza in perline e la lunghezza in righe, poi **Applica misure**.
 - In **Colori** clicca un colore per sceglierlo e disegna sulla griglia: trascina per dipingere. **Riempi** colora un'area intera, **Simmetria** specchia ogni gesto, **Annulla/Ripeti** (anche Ctrl+Z / Ctrl+Y).
@@ -41,6 +44,12 @@
 - **Immagini che sono già uno schema a quadretti** (come un bracciale disegnato con la griglia): l'app lo riconosce da sola al caricamento (*Rilevata griglia a quadretti: 17 × 40*) e **legge il colore di ogni quadretto** invece di ridurre l'immagine. La griglia prende le colonne e le righe dello schema e i colori vengono abbinati ai Delica (numero di colori automatico).
 - Se la griglia rilevata non è giusta, o l'immagine non ha le linee dei quadretti, scegli **Tipo di immagine → Schema a quadretti** e scrivi tu **colonne e righe**: l'immagine viene divisa in parti uguali. Ritaglia l'immagine ai soli quadretti per un risultato più preciso. Funziona con schemi dritti (screenshot, PDF): una foto scattata di sbieco allo schermo non viene raddrizzata.
 - Dopo la conversione puoi ritoccare a mano, annullare (Ctrl+Z) e stampare come ogni altro schema.
+
+## Libreria motivi
+- Nel riquadro **Libreria motivi** trovi una galleria di **32 motivi**, già colorati con la tua palette: *fiori* (4, 6 e 8 petali, quadrifoglio, tulipano, fiorellino, rametto), *cuori* (pieno, piccolo, con bordo), *stelle* (a 5 punte, nordica, fiocco di neve), *figure* (farfalla, albero, casetta, croce, occhio, rombi e cerchi concentrici) e *motivi che si ripetono su tutta la larghezza* (zig-zag, onde, scacchiera, righe diagonali, triangoli, losanghe, puntini, dente di sega, quadrati, greca a gradini).
+- Clicca un motivo, scegli **Colore 1, 2, 3** e **Sfondo** dalla tua palette (la galleria si aggiorna con i colori scelti), poi **Applica motivo**. Il motivo si ripete in verticale lungo tutto il lavoro e viene centrato sulla larghezza.
+- **Ingrandimento** (×1, ×2, ×3) ingrandisce il motivo; **Spazio tra i motivi** regola le righe vuote tra una ripetizione e l'altra; **Bordo laterale** aggiunge 1 o 2 colonne di colore 1 ai lati, utile per i braccialetti.
+- Se il motivo è più largo della griglia (ad esempio un fiore da 13 perline su un lavoro da 10) viene tagliato: l'app te lo segnala, scegli un motivo più piccolo o allarga la griglia. Le larghezze dispari mantengono i motivi perfettamente simmetrici.
 
 ## Generatore casuale
 - Spunta i **colori** da usare, scegli la **simmetria** (specchio sinistra/destra, o doppio), la **dimensione dei blocchi** (1 = perlina singola, 2–4 = blocchi più grandi) e, se vuoi, **Ripeti ogni N righe** per un motivo che si ripete.

@@ -8,11 +8,14 @@
 <style>
 :root{--bg:#f4f1ec;--card:#fff;--ink:#222;--mut:#6b6b6b;--acc:#2f6f6a;--line:#d8d2c8}
 *{box-sizing:border-box}
-body{margin:0;font:14px/1.4 system-ui,Segoe UI,sans-serif;background:var(--bg);color:var(--ink)}
+html,body{height:100%}
+body{margin:0;font:14px/1.4 system-ui,Segoe UI,sans-serif;background:var(--bg);color:var(--ink);display:flex;flex-direction:column;height:100vh;overflow:hidden}
 header{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:10px 14px;background:var(--card);border-bottom:1px solid var(--line)}
 header h1{font-size:17px;margin:0 10px 0 0}
-main{display:grid;grid-template-columns:300px 1fr;gap:12px;padding:12px}
-aside{display:flex;flex-direction:column;gap:12px}
+main{flex:1;min-height:0;display:grid;grid-template-columns:320px 1fr;gap:12px;padding:12px}
+aside{display:flex;flex-direction:column;gap:12px;overflow-y:auto;min-height:0;padding-right:6px}
+section{display:flex;flex-direction:column;gap:12px;min-height:0;min-width:0}
+section>.card{flex:none;max-height:26vh;overflow:auto;margin-bottom:0!important}
 .card{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:10px}
 .card h2{font-size:13px;margin:0 0 8px;text-transform:uppercase;letter-spacing:.04em;color:var(--mut)}
 label{display:flex;justify-content:space-between;align-items:center;gap:6px;margin:4px 0}
@@ -30,13 +33,15 @@ button.on{outline:2px solid var(--acc)}
 .pal input[type=color]{width:24px;height:22px;padding:0;border:0}
 table{border-collapse:collapse;width:100%}td,th{padding:3px 6px;border-bottom:1px solid var(--line);text-align:left}
 th{color:var(--mut);font-weight:600}
-#wrap{overflow:auto;max-height:calc(100vh - 80px);background:#fff;border:1px solid var(--line);border-radius:8px;padding:10px}
+#wrap{flex:1;min-height:0;overflow:auto;background:#fff;border:1px solid var(--line);border-radius:8px;padding:10px}
 #sheet{display:none}
 small{color:var(--mut)}
+#m-gal{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin-bottom:8px}.mt{border:2px solid transparent;border-radius:4px;padding:1px;cursor:pointer;background:#fff;line-height:0}.mt.sel{border-color:var(--acc)}.mt canvas{width:100%;height:auto;image-rendering:pixelated}
 #risultati{max-height:160px;overflow:auto;margin:4px 0}.ris{padding:3px 4px;cursor:pointer;border-radius:4px;font-size:13px}.ris:hover{background:#e3efed}
 footer{padding:8px 14px;color:var(--mut);font-size:12px}
-@media(max-width:800px){main{grid-template-columns:1fr}}
+@media(max-width:800px){body{height:auto;overflow:auto;display:block}main{display:block}aside{overflow:visible}#wrap{max-height:75vh}section>.card{max-height:none}}
 @media print{
+ html,body{height:auto;overflow:visible;display:block}
  body{background:#fff}header,main,footer{display:none}
  #sheet{display:block;padding:0}
  #sheet img{max-width:100%;max-height:60vh}
@@ -108,6 +113,18 @@ footer{padding:8px 14px;color:var(--mut);font-size:12px}
   <div class="row"><button id="foto-prop">Adatta lunghezza alla foto</button><button class="pri" id="foto-conv">Converti sul layout</button></div>
   <small>La foto viene portata sulla griglia attuale (larghezza × righe) rispettando le proporzioni della perlina. Con "ricavali dalla foto" i colori sono abbinati ai Delica piu' vicini.</small>
  </div>
+ <div class="card"><h2>Libreria motivi</h2>
+  <div id="m-gal"></div>
+  <label>Colore 1 <select id="m-c1"></select></label>
+  <label>Colore 2 <select id="m-c2"></select></label>
+  <label>Colore 3 <select id="m-c3"></select></label>
+  <label>Sfondo <select id="m-bg"></select></label>
+  <label>Ingrandimento <select id="m-scala"><option value="1">×1</option><option value="2">×2</option><option value="3">×3</option></select></label>
+  <label>Spazio tra i motivi (righe) <input type="number" id="m-gap" min="0" max="30" placeholder="auto"></label>
+  <label>Bordo laterale <select id="m-bordo"><option value="0">nessuno</option><option value="1">1 colonna</option><option value="2">2 colonne</option></select></label>
+  <button class="pri" id="m-applica">Applica motivo</button>
+  <small id="m-nome">Scegli un motivo dalla galleria.</small>
+ </div>
  <div class="card"><h2>Generatore casuale</h2>
   <div id="r-col"></div>
   <label>Simmetria <select id="r-simm"><option value="orizz">Specchio sinistra/destra</option><option value="orizz-vert">Specchio doppio</option><option value="nessuna">Nessuna</option></select></label>
@@ -140,6 +157,7 @@ footer{padding:8px 14px;color:var(--mut);font-size:12px}
 <footer>Codici e tinte Miyuki Delica da <a href="https://github.com/makebead/craft-color-codes">makebead/craft-color-codes</a> (CC BY 4.0, foto ufficiali Miyuki): tinte approssimate, controlla sempre la bustina.</footer>
 <div id="sheet"></div>
 <script src="delica.js"></script>
+<script src="motivi.js"></script>
 <script src="core.js"></script>
 <script src="app.js"></script>
 </body>

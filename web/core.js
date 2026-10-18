@@ -258,6 +258,30 @@
     return out;
   }
 
+  // ---- libreria motivi: ripete un motivo (o un tassello) su una griglia w x h ----
+  // o: { c1, c2, c3, sfondo } indici palette; scala (1-3); gap = righe vuote tra le ripetizioni (singolo); bordo = colonne ai lati in c1
+  function applicaMotivo(m, w, h, o) {
+    const sc = Math.max(1, o.scala | 0 || 1), col = { '.': o.sfondo, 1: o.c1, 2: o.c2, 3: o.c3 };
+    const base = m.righe.map((r) => r.split('').flatMap((ch) => Array(sc).fill(col[ch]))).flatMap((r) => Array(sc).fill(r));
+    const mw = base[0].length, mh = base.length, g = nuovaGriglia(w, h, o.sfondo);
+    if (m.tipo === 'periodico') {
+      const sx = Math.floor((w - 1) / 2 - (mw - 1) / 2);
+      for (let r = 0; r < h; r++) for (let c = 0; c < w; c++) g[r][c] = base[r % mh][(((c - sx) % mw) + mw) % mw];
+    } else {
+      const gap = Math.max(0, o.gap === undefined ? m.gap || 2 : o.gap), gapX = Math.max(1, Math.round(gap / 2) + 1);
+      const k = mw > w ? 1 : Math.max(1, Math.floor((w + gapX) / (mw + gapX)));
+      const larg = k * mw + (k - 1) * gapX, x0 = Math.floor((w - larg) / 2);
+      for (let y0 = Math.floor(gap / 2); y0 < h; y0 += mh + gap) for (let i = 0; i < k; i++) {
+        for (let r = 0; r < mh && y0 + r < h; r++) for (let c = 0; c < mw; c++) {
+          const x = x0 + i * (mw + gapX) + c;
+          if (x >= 0 && x < w) g[y0 + r][x] = base[r][c];
+        }
+      }
+    }
+    for (let b = 0; b < (o.bordo | 0); b++) for (let r = 0; r < h; r++) { if (b < w) { g[r][b] = o.c1; g[r][w - 1 - b] = o.c1; } }
+    return g;
+  }
+
   // PRNG con seme (mulberry32): stesso seme = stesso disegno
   function prng(seed) {
     let a = (seed >>> 0) || 1;
@@ -407,6 +431,6 @@
     }
   }
 
-  const api = { normCodice, fmtCodice, colore, cerca, paletteDefault, PERLINE, opzioniFoto, lum, campiona, quantizza, paletteDaFoto, rilevaGriglia, leggiQuadretti, MODELLI, applicaModello, rombiAlt, prng, casuale, lettera, nuovaGriglia, ridimensiona, genera, ripetiModulo, conteggi, rp, stimaMisure, lettura, riempi };
+  const api = { normCodice, fmtCodice, colore, cerca, paletteDefault, applicaMotivo, PERLINE, opzioniFoto, lum, campiona, quantizza, paletteDaFoto, rilevaGriglia, leggiQuadretti, MODELLI, applicaModello, rombiAlt, prng, casuale, lettera, nuovaGriglia, ridimensiona, genera, ripetiModulo, conteggi, rp, stimaMisure, lettura, riempi };
   if (typeof module !== 'undefined') module.exports = api; else root.Core = api;
 })(typeof window !== 'undefined' ? window : globalThis);
