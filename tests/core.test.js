@@ -55,4 +55,21 @@ const mo = C.applicaModello(C.MODELLI[0]);
 assert.deepStrictEqual(C.conteggi(mo.celle, 3), [220, 200, 280]);
 for (const m of C.MODELLI) { const x = C.applicaModello(m); assert.strictEqual(x.celle.length, 100); assert.strictEqual(x.celle[0].length, m.w);
   x.celle.forEach((r) => assert.deepStrictEqual(r, r.slice().reverse())); }
+// foto -> schema: immagine sintetica 40x20 meta' rossa meta' blu
+const img = { w: 40, h: 20, data: new Uint8ClampedArray(40 * 20 * 4) };
+for (let y = 0; y < 20; y++) for (let x = 0; x < 40; x++) { const k = (y * 40 + x) * 4; const rosso = x < 20; img.data.set(rosso ? [220, 20, 20, 255] : [20, 20, 220, 255], k); }
+const camp = C.campiona(img, 10, 5, { modo: 'riempi', bw: 1, bh: 1 }); // proporzioni 2:1, come l'immagine
+const gf = C.quantizza(camp, 10, 5, ['#dc1414', '#1414dc', '#ffffff'], {});
+gf.forEach((r) => { assert.deepStrictEqual(r.slice(0, 5), [0, 0, 0, 0, 0]); assert.deepStrictEqual(r.slice(5), [1, 1, 1, 1, 1]); });
+// ruota 90 gradi: la meta' sinistra (rossa) diventa la meta' alta
+const cr = C.campiona(img, 5, 10, { modo: 'riempi', bw: 1, bh: 1, ruota: true });
+const gr = C.quantizza(cr, 5, 10, ['#dc1414', '#1414dc'], {});
+assert.ok(gr.slice(0, 5).every((r) => r.every((v) => v === 0)) && gr.slice(5).every((r) => r.every((v) => v === 1)));
+// adatta: l'immagine 2:1 su griglia quadrata lascia bande vuote (sfondo = indice 2)
+const ca = C.campiona(img, 10, 10, { modo: 'adatta', bw: 1, bh: 1 });
+const ga = C.quantizza(ca, 10, 10, ['#dc1414', '#1414dc', '#ffffff'], { sfondo: 2 });
+assert.deepStrictEqual(ga[0], Array(10).fill(2)); assert.ok(ga[5].includes(0) && ga[5].includes(1));
+// palette automatica: 2 colori dalla foto, abbinati a codici Delica distinti
+const pf = C.paletteDaFoto(camp, 10, 5, 2, 1);
+assert.strictEqual(pf.length, 2); assert.notStrictEqual(pf[0].cod, pf[1].cod); assert.ok(/^DB \d{3}/.test(pf[0].cod));
 console.log('core ok');

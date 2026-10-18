@@ -82,6 +82,18 @@ footer{padding:8px 14px;color:var(--mut);font-size:12px}
   <button id="addcol">+ colore libero</button>
   <small>Scrivi un codice DB nella riga di un colore e premi Invio: nome e tinta si compilano da soli. Tinte approssimate.</small>
  </div>
+ <div class="card"><h2>Da foto</h2>
+  <input type="file" id="foto-file" accept="image/*" style="width:100%">
+  <canvas id="foto-anteprima" style="display:none;max-width:100%;margin:6px 0;border:1px solid var(--line)"></canvas>
+  <label>Inquadratura <select id="foto-modo"><option value="riempi">Riempi (ritaglia)</option><option value="adatta">Adatta (bande vuote)</option></select></label>
+  <label><span>Ruota di 90°</span><input type="checkbox" id="foto-ruota"></label>
+  <label><span>Sfumatura (dithering)</span><input type="checkbox" id="foto-dither"></label>
+  <label>Contrasto <input type="range" id="foto-contr" min="-60" max="100" value="0"></label>
+  <label>Colori <select id="foto-colori"><option value="palette">Quelli della palette</option><option value="foto">Ricavali dalla foto</option></select></label>
+  <label id="foto-n-riga" style="display:none">Quanti colori <input type="number" id="foto-n" min="2" max="12" value="4"></label>
+  <div class="row"><button id="foto-prop">Adatta lunghezza alla foto</button><button class="pri" id="foto-conv">Converti sul layout</button></div>
+  <small>La foto viene portata sulla griglia attuale (larghezza × righe) rispettando le proporzioni della perlina. Con "ricavali dalla foto" i colori sono abbinati ai Delica piu' vicini.</small>
+ </div>
  <div class="card"><h2>Generatore casuale</h2>
   <div id="r-col"></div>
   <label>Simmetria <select id="r-simm"><option value="orizz">Specchio sinistra/destra</option><option value="orizz-vert">Specchio doppio</option><option value="nessuna">Nessuna</option></select></label>

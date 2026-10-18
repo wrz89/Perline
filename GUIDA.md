@@ -28,6 +28,15 @@
 - **Ripeti le prime righe del modulo** prende le prime N righe che hai disegnato a mano e le ripete fino alla fine: comodo per fare un modulo piccolo e allungarlo.
 - **Rombi alternati (come schemi)**: rombi di due colori sfalsati di mezzo passo con bordo di sfondo. Imposta larghezza e altezza del rombo (in perline e righe) e lo spessore del bordo; Anello 1 = rombo A, Anello 2 = rombo B, Anello 4 = sfondo. Per rombi regolari usa altezza ≈ 1,2 × larghezza.
 
+## Da foto
+- Nel riquadro **Da foto** carica un'immagine (JPG, PNG…): viene portata sulla griglia attuale, larghezza × righe, rispettando le proporzioni della perlina (1,6 × 1,3 mm), quindi non risulta stirata.
+- **Inquadratura**: *Riempi* ritaglia al centro e riempie tutta la griglia; *Adatta* mostra tutta la foto e lascia bande vuote del colore più chiaro.
+- **Adatta lunghezza alla foto** imposta le righe in base alla larghezza scelta, così l'intera foto entra senza ritagli.
+- **Ruota di 90°** è utile per i braccialetti stretti e lunghi: una foto in verticale va ruotata per seguire la lunghezza.
+- **Colori**: *Quelli della palette* usa solo i colori che hai già (comodo se hai le perline); *Ricavali dalla foto* sceglie da 2 a 12 colori dominanti e li abbina ai Delica più vicini, sostituendo la palette.
+- **Sfumatura** simula i toni intermedi a punti (bene per foto, meno per loghi); **Contrasto** schiarisce o scurisce. Con poche perline le foto con soggetti semplici e contrasti netti vengono meglio.
+- Dopo la conversione puoi ritoccare a mano, annullare (Ctrl+Z) e stampare come ogni altro schema.
+
 ## Generatore casuale
 - Spunta i **colori** da usare, scegli la **simmetria** (specchio sinistra/destra, o doppio), la **dimensione dei blocchi** (1 = perlina singola, 2–4 = blocchi più grandi) e, se vuoi, **Ripeti ogni N righe** per un motivo che si ripete.
 - **Nuovo casuale** estrae un nuovo disegno e un nuovo **seme**. Lo stesso seme dà sempre lo stesso disegno: annota il seme dei motivi che ti piacciono e usa **Rigenera col seme** per ritrovarli.

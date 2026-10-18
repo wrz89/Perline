@@ -57,6 +57,98 @@
     return { palette, w: m.w, h: m.h, celle: rombiAlt(m.w, m.h, { dw: m.dw, dh: m.dh, tA: m.tA, tB: m.tB, a: 2, b: 1, sfondo: 0 }) };
   }
 
+  // ---- foto -> schema ----
+  const hex2rgb = (h) => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
+  const lum = (hex) => lab(...hex2rgb(hex))[0];
+  function lab(r, g, b) {
+    const f = (v) => { v /= 255; return v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
+    const R = f(r), G = f(g), B = f(b);
+    let x = (R * 0.4124 + G * 0.3576 + B * 0.1805) / 0.95047, y = R * 0.2126 + G * 0.7152 + B * 0.0722, z = (R * 0.0193 + G * 0.1192 + B * 0.9505) / 1.08883;
+    const t = (v) => (v > 0.008856 ? Math.cbrt(v) : 7.787 * v + 16 / 116);
+    x = t(x); y = t(y); z = t(z);
+    return [116 * y - 16, 500 * (x - y), 200 * (y - z)];
+  }
+  const d2 = (p, q) => (p[0] - q[0]) ** 2 + (p[1] - q[1]) ** 2 + (p[2] - q[2]) ** 2;
+
+  // Porta l'immagine {w,h,data RGBA} sulla griglia W x H. Una cella e' larga bw e alta bh (mm): il rettangolo
+  // di immagine usato ha le stesse proporzioni del lavoro finito. modo 'riempi' ritaglia al centro, 'adatta' lascia bande vuote.
+  function campiona(img, W, H, o) {
+    const bw = o.bw || 1.6, bh = o.bh || 1.3, rot = !!o.ruota;
+    const iw = rot ? img.h : img.w, ih = rot ? img.w : img.h;
+    const A = (W * bw) / (H * bh);
+    let rw, rh;
+    if (o.modo === 'adatta') { if (iw / ih > A) { rw = iw; rh = iw / A; } else { rh = ih; rw = ih * A; } }
+    else { if (iw / ih > A) { rh = ih; rw = ih * A; } else { rw = iw; rh = iw / A; } }
+    const x0 = (iw - rw) / 2, y0 = (ih - rh) / 2;
+    const rgb = new Float32Array(W * H * 3), vuoto = new Uint8Array(W * H);
+    for (let r = 0; r < H; r++) for (let c = 0; c < W; c++) {
+      const xa = x0 + (c * rw) / W, xb = x0 + ((c + 1) * rw) / W, ya = y0 + (r * rh) / H, yb = y0 + ((r + 1) * rh) / H;
+      const sx0 = Math.max(0, Math.floor(xa)), sx1 = Math.min(iw - 1, Math.max(Math.floor(xa), Math.ceil(xb) - 1));
+      const sy0 = Math.max(0, Math.floor(ya)), sy1 = Math.min(ih - 1, Math.max(Math.floor(ya), Math.ceil(yb) - 1));
+      const i = r * W + c;
+      if (xb <= 0 || xa >= iw || yb <= 0 || ya >= ih) { vuoto[i] = 1; continue; }
+      let sr = 0, sg = 0, sb = 0, n = 0;
+      for (let y = sy0; y <= sy1; y++) for (let x = sx0; x <= sx1; x++) {
+        const [ox, oy] = rot ? [y, img.h - 1 - x] : [x, y];
+        const k = (oy * img.w + ox) * 4, a = img.data[k + 3] / 255;
+        sr += img.data[k] * a + 255 * (1 - a); sg += img.data[k + 1] * a + 255 * (1 - a); sb += img.data[k + 2] * a + 255 * (1 - a); n++;
+      }
+      if (!n) { vuoto[i] = 1; continue; }
+      rgb[i * 3] = sr / n; rgb[i * 3 + 1] = sg / n; rgb[i * 3 + 2] = sb / n;
+    }
+    return { rgb, vuoto };
+  }
+
+  // Colore piu' vicino (distanza in CIELAB). paletteHex: lista di '#rrggbb'. Restituisce la griglia di indici.
+  function quantizza(camp, W, H, paletteHex, o) {
+    o = o || {};
+    const labs = paletteHex.map((h) => lab(...hex2rgb(h))), rgbs = paletteHex.map(hex2rgb);
+    const buf = Float32Array.from(camp.rgb), fattore = 1 + (o.contrasto || 0);
+    const piu = (r, g, b) => { const l = lab(r, g, b); let m = 0, md = Infinity; for (let i = 0; i < labs.length; i++) { const d = d2(l, labs[i]); if (d < md) { md = d; m = i; } } return m; };
+    const g = nuovaGriglia(W, H, o.sfondo || 0);
+    for (let r = 0; r < H; r++) for (let c = 0; c < W; c++) {
+      const i = r * W + c;
+      if (camp.vuoto[i]) continue;
+      const v = [0, 1, 2].map((k) => Math.max(0, Math.min(255, (buf[i * 3 + k] - 128) * fattore + 128)));
+      const m = piu(v[0], v[1], v[2]);
+      g[r][c] = m;
+      if (o.dither) {
+        const e = [0, 1, 2].map((k) => v[k] - rgbs[m][k]);
+        const dif = (dc, dr, q) => { const cc = c + dc, rr = r + dr; if (cc < 0 || cc >= W || rr >= H || camp.vuoto[rr * W + cc]) return; for (let k = 0; k < 3; k++) buf[(rr * W + cc) * 3 + k] += e[k] * q; };
+        dif(1, 0, 7 / 16); dif(-1, 1, 3 / 16); dif(0, 1, 5 / 16); dif(1, 1, 1 / 16);
+      }
+    }
+    return g;
+  }
+
+  // Ricava k colori dall'immagine (k-means in CIELAB sulle celle) e li abbina ai Delica piu' vicini (distinti, in produzione).
+  function paletteDaFoto(camp, W, H, k, seme) {
+    const pts = [];
+    for (let i = 0; i < W * H; i++) if (!camp.vuoto[i]) pts.push(lab(camp.rgb[i * 3], camp.rgb[i * 3 + 1], camp.rgb[i * 3 + 2]));
+    if (!pts.length) return [];
+    k = Math.max(1, Math.min(k, pts.length));
+    const rnd = prng(seme || 7), cen = [pts[Math.floor(rnd() * pts.length)]];
+    while (cen.length < k) { // k-means++
+      const dist = pts.map((p) => Math.min(...cen.map((q) => d2(p, q)))), tot = dist.reduce((a, b) => a + b, 0);
+      if (tot === 0) break;
+      let x = rnd() * tot, j = 0; while (j < pts.length - 1 && x >= dist[j]) { x -= dist[j]; j++; }
+      cen.push(pts[j]);
+    }
+    for (let it = 0; it < 15; it++) {
+      const somma = cen.map(() => [0, 0, 0, 0]);
+      pts.forEach((p) => { let m = 0, md = Infinity; cen.forEach((q, i) => { const d = d2(p, q); if (d < md) { md = d; m = i; } }); const s = somma[m]; s[0] += p[0]; s[1] += p[1]; s[2] += p[2]; s[3]++; });
+      somma.forEach((s, i) => { if (s[3]) cen[i] = [s[0] / s[3], s[1] / s[3], s[2] / s[3]]; });
+    }
+    const catalogo = Array.from(indice().values()).filter((r) => !r[3]).map((r) => ({ r, l: lab(...hex2rgb(r[2])) }));
+    const usati = new Set(), out = [];
+    cen.sort((a, b) => b[0] - a[0]).forEach((cl) => {
+      const ord = catalogo.map((x) => [d2(cl, x.l), x.r]).sort((a, b) => a[0] - b[0]);
+      const sc = ord.find(([, r]) => !usati.has(r[0]));
+      if (sc) { usati.add(sc[1][0]); out.push({ cod: fmtCodice(sc[1][0]), nome: sc[1][1], hex: sc[1][2] }); }
+    });
+    return out;
+  }
+
   // PRNG con seme (mulberry32): stesso seme = stesso disegno
   function prng(seed) {
     let a = (seed >>> 0) || 1;
@@ -206,6 +298,6 @@
     }
   }
 
-  const api = { normCodice, fmtCodice, colore, cerca, paletteDefault, MODELLI, applicaModello, rombiAlt, prng, casuale, lettera, nuovaGriglia, ridimensiona, genera, ripetiModulo, conteggi, rp, stimaMisure, lettura, riempi };
+  const api = { normCodice, fmtCodice, colore, cerca, paletteDefault, lum, campiona, quantizza, paletteDaFoto, MODELLI, applicaModello, rombiAlt, prng, casuale, lettera, nuovaGriglia, ridimensiona, genera, ripetiModulo, conteggi, rp, stimaMisure, lettura, riempi };
   if (typeof module !== 'undefined') module.exports = api; else root.Core = api;
 })(typeof window !== 'undefined' ? window : globalThis);

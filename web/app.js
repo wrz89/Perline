@@ -274,6 +274,48 @@
   $('r-gen').onclick = () => generaCasuale(true);
   $('r-ripeti').onclick = () => generaCasuale(false);
 
+  // ---- foto -> schema ----
+  let foto = null; // { w, h, data } RGBA ridotto a max 600 px
+  $('foto-file').onchange = () => {
+    const f = $('foto-file').files[0]; if (!f) return;
+    const im = new Image(), url = URL.createObjectURL(f);
+    im.onload = () => {
+      const k = Math.min(1, 600 / Math.max(im.naturalWidth, im.naturalHeight));
+      const cv2 = document.createElement('canvas'); cv2.width = Math.max(1, Math.round(im.naturalWidth * k)); cv2.height = Math.max(1, Math.round(im.naturalHeight * k));
+      const x = cv2.getContext('2d'); x.drawImage(im, 0, 0, cv2.width, cv2.height);
+      foto = { w: cv2.width, h: cv2.height, data: x.getImageData(0, 0, cv2.width, cv2.height).data };
+      const an = $('foto-anteprima'), kk = Math.min(1, 220 / cv2.width); an.width = Math.round(cv2.width * kk); an.height = Math.round(cv2.height * kk);
+      an.getContext('2d').drawImage(cv2, 0, 0, an.width, an.height); an.style.display = 'block';
+      URL.revokeObjectURL(url); msg('Foto caricata: ' + cv2.width + ' × ' + cv2.height + ' px');
+    };
+    im.onerror = () => { URL.revokeObjectURL(url); msg('Impossibile leggere l\'immagine'); };
+    im.src = url;
+  };
+  $('foto-colori').onchange = () => { $('foto-n-riga').style.display = $('foto-colori').value === 'foto' ? '' : 'none'; };
+  $('foto-prop').onclick = () => {
+    if (!foto) return msg('Carica prima una foto');
+    const iw = $('foto-ruota').checked ? foto.h : foto.w, ih = $('foto-ruota').checked ? foto.w : foto.h;
+    S.h = Math.max(1, Math.min(800, Math.round((S.w * S.opz.larghezzaMm * ih) / (iw * S.opz.altezzaMm))));
+    snapshot(); S.celle = C.ridimensiona(S.celle, S.w, S.h, 0); sync(); msg('Lunghezza adattata alla foto: ' + S.h + ' righe');
+  };
+  $('foto-conv').onclick = () => {
+    if (!foto) return msg('Carica prima una foto');
+    const camp = C.campiona(foto, S.w, S.h, { modo: $('foto-modo').value, ruota: $('foto-ruota').checked, bw: S.opz.larghezzaMm, bh: S.opz.altezzaMm });
+    let palette = S.palette;
+    if ($('foto-colori').value === 'foto') {
+      if (!confirm('I colori verranno ricavati dalla foto e abbinati ai Delica: la palette attuale sara\' sostituita. Continuare?')) return;
+      palette = C.paletteDaFoto(camp, S.w, S.h, Math.max(2, Math.min(12, +$('foto-n').value || 4)), 7);
+      if (!palette.length) return msg('Nessun colore ricavato');
+    }
+    // sfondo (bande del modo "adatta"): il colore piu' chiaro
+    let sf = 0, lmax = -1;
+    palette.forEach((p, i) => { const L = C.lum(p.hex); if (L > lmax) { lmax = L; sf = i; } });
+    snapshot();
+    S.palette = palette.map((p) => ({ ...p }));
+    S.celle = C.quantizza(camp, S.w, S.h, S.palette.map((p) => p.hex), { dither: $('foto-dither').checked, contrasto: +$('foto-contr').value / 100, sfondo: sf });
+    colore = 0; sync(); msg('Foto convertita sul layout ' + S.w + ' × ' + S.h);
+  };
+
   // ---- stampa ----
   $('stampa').onclick = () => {
     const off = document.createElement('canvas'), c2 = off.getContext('2d');
