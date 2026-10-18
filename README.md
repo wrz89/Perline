@@ -4,21 +4,26 @@ Progetta schemi per perline (Miyuki Delica) su **telaio** (default) o in **peyot
 generatore di rombi / chevron / righe, conteggio perline per colore (con "rp."),
 misure e filo stimati, foglio di lavoro da stampare o salvare in PDF.
 
-## Installazione (Windows, solo la prima volta)
+## Opzione 1 - Perline.exe (senza Python, consigliata per altri PC)
+1. Scarica `Perline.exe` da  
+   https://github.com/wrz89/Perline/releases/download/perline-latest/Perline.exe
+2. Mettilo in una cartella tua (es. `C:\Perline`) e fai doppio clic.
+   Se Windows mostra "Il PC è stato protetto": **Ulteriori informazioni -> Esegui comunque**
+   (l'exe non è firmato).
+3. Si apre una finestra nera (il motore, lasciala aperta) e l'app nel browser.
+   I progetti si salvano nella cartella `dati` accanto all'exe.
+
+**Aggiornare:** riscarica `Perline.exe` dallo stesso link e sostituisci il vecchio file
+(la cartella `dati` resta intatta). Il link è sempre l'ultima versione.
+
+## Opzione 2 - con Python (aggiornamento automatico)
 1. Serve Python 3 (python.org, spunta "Add python.exe to PATH").
-2. Crea una cartella, ad es. `C:\Perline`, e salvaci dentro `aggiorna_perline.bat`
-   (dal repository).
-3. Doppio clic su `aggiorna_perline.bat`: scarica tutto.
+2. Crea una cartella, ad es. `C:\Perline`, e salvaci dentro `aggiorna_perline.bat` (dal repository).
+3. Doppio clic su `aggiorna_perline.bat`: scarica tutto (rilancialo per aggiornare).
 4. Doppio clic su `avvia_perline.bat`: si apre l'app nel browser.
 
-## Aggiornamenti
-Rilancia `aggiorna_perline.bat`. I tuoi progetti (cartella `dati`) restano intatti.
-Se il repository e' privato crea `dati\github_token.txt` con un token GitHub di sola lettura
-(permesso *Contents: Read-only*).
-
-## Eseguibile (.exe)
-La GitHub Action `Perline exe` compila `Perline.exe` e lo pubblica nella release
-`perline-latest`. Non richiede Python; i progetti si salvano in `dati` accanto all'exe.
+L'exe viene compilato dalla GitHub Action `Perline exe` a ogni modifica e pubblicato nella
+release `perline-latest`.
 
 ## Uso rapido
 - Colori: clic su una riga della palette, poi disegna. Codici DB e tinte sono modificabili.
