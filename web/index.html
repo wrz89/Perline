@@ -87,6 +87,14 @@ footer{padding:8px 14px;color:var(--mut);font-size:12px}
  <div class="card"><h2>Da foto</h2>
   <input type="file" id="foto-file" accept="image/*" style="width:100%">
   <canvas id="foto-anteprima" style="display:none;max-width:100%;margin:6px 0;border:1px solid var(--line)"></canvas>
+  <label>Tipo di immagine <select id="foto-tipo"><option value="auto">Automatico</option><option value="foto">Foto (riduci sulla griglia)</option><option value="schema">Schema a quadretti (leggi i quadretti)</option></select></label>
+  <small id="foto-info"></small>
+  <div id="foto-blocco-schema" style="display:none">
+   <label>Colonne (vuoto = automatico) <input type="number" id="foto-cols" min="2" max="150"></label>
+   <label>Righe (vuoto = automatico) <input type="number" id="foto-righe" min="2" max="1000"></label>
+   <small>Se la griglia rilevata e' sbagliata scrivi tu colonne e righe: l'immagine viene divisa in parti uguali.</small>
+  </div>
+  <div id="foto-blocco-foto">
   <label>Larghezza del lavoro (mm) <input type="number" id="foto-lm" min="5" max="400" placeholder="es. 20"></label>
   <label>Dettaglio <select id="foto-det"><option value="20">Basso (≥ 20 colonne)</option><option value="30" selected>Medio (≥ 30)</option><option value="50">Alto (≥ 50)</option></select></label>
   <div id="foto-opz"></div>
@@ -94,8 +102,9 @@ footer{padding:8px 14px;color:var(--mut);font-size:12px}
   <label><span>Ruota di 90°</span><input type="checkbox" id="foto-ruota"></label>
   <label><span>Sfumatura (dithering)</span><input type="checkbox" id="foto-dither"></label>
   <label>Contrasto <input type="range" id="foto-contr" min="-60" max="100" value="0"></label>
+  </div>
   <label>Colori <select id="foto-colori"><option value="palette">Quelli della palette</option><option value="foto">Ricavali dalla foto</option></select></label>
-  <label id="foto-n-riga" style="display:none">Quanti colori <input type="number" id="foto-n" min="2" max="12" value="4"></label>
+  <label id="foto-n-riga" style="display:none">Quanti colori <input type="number" id="foto-n" min="2" max="12" placeholder="auto"></label>
   <div class="row"><button id="foto-prop">Adatta lunghezza alla foto</button><button class="pri" id="foto-conv">Converti sul layout</button></div>
   <small>La foto viene portata sulla griglia attuale (larghezza × righe) rispettando le proporzioni della perlina. Con "ricavali dalla foto" i colori sono abbinati ai Delica piu' vicini.</small>
  </div>

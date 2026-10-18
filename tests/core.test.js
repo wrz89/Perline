@@ -80,4 +80,26 @@ assert.strictEqual(o15.cols, 77);
 assert.strictEqual(of.filter((x) => x.consigliata).length, 1);
 assert.strictEqual(of.find((x) => x.consigliata).id, '8'); // 100/3 = 33 colonne >= 30: la piu' grande che basta
 assert.strictEqual(C.opzioniFoto(20, 100, 100, C.PERLINE, 60).find((x) => x.consigliata).id, '15'); // nessuna arriva a 60: la piu' piccola
+// schema gia' a quadretti: griglia 8 x 12 con linee, cella 11 px, margine 15 px, tre colori
+{
+  const cell = 11, mar = 15, cols = 8, rows = 12, W = cols * cell + 1 + 2 * mar, H = rows * cell + 1 + 2 * mar;
+  const d = new Uint8ClampedArray(W * H * 4).fill(255);
+  const col = (r, c) => ((r + c) % 3 === 0 ? [20, 20, 20] : (r % 2 ? [150, 200, 230] : [235, 200, 170]));
+  const put = (x, y, v) => { const k = (y * W + x) * 4; d[k] = v[0]; d[k + 1] = v[1]; d[k + 2] = v[2]; };
+  for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) for (let y = 0; y < cell; y++) for (let x = 0; x < cell; x++) put(mar + c * cell + x, mar + r * cell + y, col(r, c));
+  for (let c = 0; c <= cols; c++) for (let y = 0; y <= rows * cell; y++) put(mar + c * cell, mar + y, [120, 100, 90]);
+  for (let r = 0; r <= rows; r++) for (let x = 0; x <= cols * cell; x++) put(mar + x, mar + r * cell, [120, 100, 90]);
+  const im = { w: W, h: H, data: d }, g = C.rilevaGriglia(im);
+  assert.ok(g, 'griglia non rilevata'); assert.strictEqual(g.cols, cols); assert.strictEqual(g.rows, rows);
+  const cp = C.leggiQuadretti(im, g), pal = ['#141414', '#96c8e6', '#ebc8aa'];
+  const q = C.quantizza(cp, cols, rows, pal, {});
+  for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+    const v = col(r, c), atteso = v[0] === 20 ? 0 : (v[0] === 150 ? 1 : 2);
+    assert.strictEqual(q[r][c], atteso, `cella ${r},${c}`);
+  }
+  assert.strictEqual(C.paletteDaFoto(cp, cols, rows, 0, 1).length, 3); // numero colori automatico
+  // una foto "morbida" (sfumatura) non e' una griglia
+  const f = new Uint8ClampedArray(200 * 100 * 4); for (let y = 0; y < 100; y++) for (let x = 0; x < 200; x++) { const k = (y * 200 + x) * 4; f[k] = x; f[k + 1] = y * 2; f[k + 2] = 128; f[k + 3] = 255; }
+  assert.strictEqual(C.rilevaGriglia({ w: 200, h: 100, data: f }), null);
+}
 console.log('core ok');

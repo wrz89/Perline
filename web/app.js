@@ -282,6 +282,7 @@
 
   // ---- foto -> schema ----
   let foto = null; // { w, h, data } RGBA ridotto a max 600 px
+  let griglia = null; // griglia a quadretti rilevata nell'immagine (o null)
   $('foto-file').onchange = () => {
     const f = $('foto-file').files[0]; if (!f) return;
     const im = new Image(), url = URL.createObjectURL(f);
@@ -290,6 +291,9 @@
       const cv2 = document.createElement('canvas'); cv2.width = Math.max(1, Math.round(im.naturalWidth * k)); cv2.height = Math.max(1, Math.round(im.naturalHeight * k));
       const x = cv2.getContext('2d'); x.drawImage(im, 0, 0, cv2.width, cv2.height);
       foto = { w: cv2.width, h: cv2.height, data: x.getImageData(0, 0, cv2.width, cv2.height).data };
+      // se l'immagine e' gia' uno schema (si vedono i quadretti) la riconosce e legge ogni quadretto
+      try { const g = C.rilevaGriglia(foto); griglia = g && g.conf >= 3 && g.cols >= 5 && g.rows >= 5 ? g : null; } catch (e) { griglia = null; }
+      $('foto-tipo').value = 'auto'; aggiornaTipo();
       const an = $('foto-anteprima'), kk = Math.min(1, 220 / cv2.width); an.width = Math.round(cv2.width * kk); an.height = Math.round(cv2.height * kk);
       an.getContext('2d').drawImage(cv2, 0, 0, an.width, an.height); an.style.display = 'block';
       if (!(+$('foto-lm').value > 0)) $('foto-lm').value = Math.round(S.w * S.opz.larghezzaMm);
@@ -306,8 +310,40 @@
     S.h = Math.max(1, Math.min(1000, Math.round((S.w * S.opz.larghezzaMm * ih) / (iw * S.opz.altezzaMm))));
     snapshot(); S.celle = C.ridimensiona(S.celle, S.w, S.h, 0); sync(); msg('Lunghezza adattata alla foto: ' + S.h + ' righe');
   };
+  // tipo effettivo: schema a quadretti oppure foto da ridurre
+  function tipoFoto() { const t = $('foto-tipo').value; return t === 'auto' ? (griglia ? 'schema' : 'foto') : t; }
+  function aggiornaTipo() {
+    const t = tipoFoto();
+    $('foto-info').textContent = !foto ? '' : (griglia ? `Rilevata griglia a quadretti: ${griglia.cols} × ${griglia.rows}` : 'Nessuna griglia a quadretti rilevata: tratto l\'immagine come foto');
+    $('foto-blocco-foto').style.display = t === 'schema' ? 'none' : '';
+    $('foto-blocco-schema').style.display = t === 'schema' ? '' : 'none';
+    $('foto-prop').style.display = t === 'schema' ? 'none' : '';
+    fotoOpzioni();
+  }
+  $('foto-tipo').onchange = aggiornaTipo;
+  // schema a quadretti: colonne x righe dalla griglia rilevata, oppure forzate a mano (immagine divisa in parti uguali)
+  function convertiSchema() {
+    const cf = +$('foto-cols').value, rf = +$('foto-righe').value;
+    let g = griglia;
+    if (cf > 0 && rf > 0) g = { x0: 0, y0: 0, px: foto.w / cf, py: foto.h / rf, cols: cf, rows: rf };
+    if (!g) return msg('Griglia non rilevata: inserisci colonne e righe a mano');
+    if (g.cols > 150 || g.rows > 1000) return msg('Schema troppo grande (massimo 150 × 1000)');
+    const camp = C.leggiQuadretti(foto, g);
+    let palette = S.palette;
+    if ($('foto-colori').value === 'foto') {
+      if (!confirm('I colori verranno ricavati dallo schema e abbinati ai Delica: la palette attuale sara\' sostituita. Continuare?')) return;
+      const n = +$('foto-n').value;
+      palette = C.paletteDaFoto(camp, g.cols, g.rows, n >= 2 ? Math.min(12, n) : 0, 7);
+      if (!palette.length) return msg('Nessun colore ricavato');
+    }
+    snapshot();
+    S.palette = palette.map((p) => ({ ...p })); S.w = g.cols; S.h = g.rows;
+    S.celle = C.quantizza(camp, g.cols, g.rows, S.palette.map((p) => p.hex), {});
+    colore = 0; sync(); msg('Schema letto: ' + g.cols + ' × ' + g.rows + ' quadretti, ' + S.palette.length + ' colori');
+  }
   function convertiFoto() {
     if (!foto) return msg('Carica prima una foto');
+    if (tipoFoto() === 'schema') return convertiSchema();
     const camp = C.campiona(foto, S.w, S.h, { modo: $('foto-modo').value, ruota: $('foto-ruota').checked, bw: S.opz.larghezzaMm, bh: S.opz.altezzaMm });
     let palette = S.palette;
     if ($('foto-colori').value === 'foto') {
@@ -327,7 +363,7 @@
   // misure consigliate per far stare la foto su una larghezza: calcolo automatico (al caricamento e a ogni cambio)
   function fotoOpzioni() {
     const box = $('foto-opz');
-    if (!foto) { box.innerHTML = ''; return; }
+    if (!foto || tipoFoto() === 'schema') { box.innerHTML = ''; return; }
     const lm = +$('foto-lm').value;
     if (!(lm > 0)) { box.innerHTML = ''; return; }
     const rot = $('foto-ruota').checked, iw = rot ? foto.h : foto.w, ih = rot ? foto.w : foto.h;
@@ -339,7 +375,7 @@
     box.querySelectorAll('button').forEach((bt) => bt.addEventListener('click', () => {
       const o = op.find((x) => x.id === bt.dataset.id);
       snapshot(); S.opz.larghezzaMm = o.bw; S.opz.altezzaMm = o.bh; S.w = Math.min(150, o.cols); S.h = Math.min(1000, o.rows);
-      S.celle = C.ridimensiona(S.celle, S.w, S.h, 0); $('foto-modo').value = 'riempi'; sync(); convertiFoto();
+      S.celle = C.ridimensiona(S.celle, S.w, S.h, 0); $('foto-modo').value = 'riempi'; $('foto-tipo').value = 'foto'; aggiornaTipo(); sync(); convertiFoto();
     }));
   }
   ['foto-lm', 'foto-det', 'foto-ruota'].forEach((id) => $(id).addEventListener('input', fotoOpzioni));

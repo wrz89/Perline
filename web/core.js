@@ -121,14 +121,11 @@
     return g;
   }
 
-  // Ricava k colori dall'immagine (k-means in CIELAB sulle celle) e li abbina ai Delica piu' vicini (distinti, in produzione).
-  function paletteDaFoto(camp, W, H, k, seme) {
-    const pts = [];
-    for (let i = 0; i < W * H; i++) if (!camp.vuoto[i]) pts.push(lab(camp.rgb[i * 3], camp.rgb[i * 3 + 1], camp.rgb[i * 3 + 2]));
-    if (!pts.length) return [];
+  // centri dei colori dominanti (CIELAB): k-means++ con k fisso
+  function centriKmeans(pts, k, seme) {
     k = Math.max(1, Math.min(k, pts.length));
     const rnd = prng(seme || 7), cen = [pts[Math.floor(rnd() * pts.length)]];
-    while (cen.length < k) { // k-means++
+    while (cen.length < k) {
       const dist = pts.map((p) => Math.min(...cen.map((q) => d2(p, q)))), tot = dist.reduce((a, b) => a + b, 0);
       if (tot === 0) break;
       let x = rnd() * tot, j = 0; while (j < pts.length - 1 && x >= dist[j]) { x -= dist[j]; j++; }
@@ -139,14 +136,107 @@
       pts.forEach((p) => { let m = 0, md = Infinity; cen.forEach((q, i) => { const d = d2(p, q); if (d < md) { md = d; m = i; } }); const s = somma[m]; s[0] += p[0]; s[1] += p[1]; s[2] += p[2]; s[3]++; });
       somma.forEach((s, i) => { if (s[3]) cen[i] = [s[0] / s[3], s[1] / s[3], s[2] / s[3]]; });
     }
+    return cen;
+  }
+  // numero di colori automatico (per schemi gia' a quadretti): raggruppa i colori simili e scarta i rari (bordi, sfumature)
+  function centriAuto(pts, soglia, max) {
+    const cl = [];
+    pts.forEach((p) => {
+      let m = null, md = soglia * soglia;
+      cl.forEach((x) => { const d = d2(p, x.c); if (d < md) { md = d; m = x; } });
+      if (m) { m.s[0] += p[0]; m.s[1] += p[1]; m.s[2] += p[2]; m.n++; m.c = [m.s[0] / m.n, m.s[1] / m.n, m.s[2] / m.n]; }
+      else cl.push({ c: p.slice(), s: p.slice(), n: 1 });
+    });
+    const minimo = Math.max(2, Math.ceil(pts.length * 0.012));
+    let grandi = cl.filter((x) => x.n >= minimo);
+    if (!grandi.length) grandi = cl.slice().sort((a, b) => b.n - a.n).slice(0, 1);
+    return grandi.sort((a, b) => b.n - a.n).slice(0, max || 12).map((x) => x.c);
+  }
+  // abbina i centri ai Delica piu' vicini (distinti, in produzione), dal piu' chiaro al piu' scuro
+  function abbinaDelica(cen) {
     const catalogo = Array.from(indice().values()).filter((r) => !r[3]).map((r) => ({ r, l: lab(...hex2rgb(r[2])) }));
     const usati = new Set(), out = [];
-    cen.sort((a, b) => b[0] - a[0]).forEach((cl) => {
-      const ord = catalogo.map((x) => [d2(cl, x.l), x.r]).sort((a, b) => a[0] - b[0]);
-      const sc = ord.find(([, r]) => !usati.has(r[0]));
+    cen.slice().sort((a, b) => b[0] - a[0]).forEach((cl) => {
+      const sc = catalogo.map((x) => [d2(cl, x.l), x.r]).sort((a, b) => a[0] - b[0]).find(([, r]) => !usati.has(r[0]));
       if (sc) { usati.add(sc[1][0]); out.push({ cod: fmtCodice(sc[1][0]), nome: sc[1][1], hex: sc[1][2] }); }
     });
     return out;
+  }
+  // Ricava i colori dall'immagine: k fisso, oppure k = 0 per il numero automatico
+  function paletteDaFoto(camp, W, H, k, seme) {
+    const pts = [];
+    for (let i = 0; i < W * H; i++) if (!camp.vuoto[i]) pts.push(lab(camp.rgb[i * 3], camp.rgb[i * 3 + 1], camp.rgb[i * 3 + 2]));
+    if (!pts.length) return [];
+    return abbinaDelica(k > 0 ? centriKmeans(pts, k, seme) : centriAuto(pts, 14, 12));
+  }
+
+  // ---- schemi gia' a quadretti: rileva la griglia e legge il colore di ogni quadretto ----
+  // Cerca il passo (in pixel) dei bordi: prima per autocorrelazione del profilo dei contorni (non risente dei margini),
+  // poi affina con un "pettine" di righe equidistanti anche per passi non interi (immagini ridimensionate).
+  function trovaPasso(E) {
+    const N = E.length, media = E.reduce((a, b) => a + b, 0) / N || 1e-9;
+    const Ec = Array.from(E, (v) => v - media), maxLag = Math.min(150, N >> 1);
+    const ac = new Float32Array(maxLag + 2);
+    for (let l = 1; l <= maxLag; l++) { let s = 0; for (let i = 0; i + l < N; i++) s += Ec[i] * Ec[i + l]; ac[l] = s / (N - l); }
+    let top = 0; for (let l = 3; l <= maxLag; l++) if (ac[l] > top) top = ac[l];
+    if (top <= 0) return null;
+    let p0 = 0;
+    for (let l = 3; l < maxLag; l++) if (ac[l] >= ac[l - 1] && ac[l] >= ac[l + 1] && ac[l] >= 0.5 * top) { p0 = l; break; }
+    if (!p0) return null;
+    const es = new Float32Array(N);
+    for (let i = 0; i < N; i++) es[i] = Math.max(E[i], E[i - 1] || 0, E[i + 1] || 0);
+    // punteggio del pettine: media del 70% dei picchi piu' forti (ignora i margini senza linee)
+    const punt = (p, fase) => { const v = []; for (let x = fase; x < N; x += p) v.push(es[Math.round(x)]); v.sort((a, b) => b - a); const n = Math.max(1, Math.ceil(v.length * 0.7)); let s = 0; for (let i = 0; i < n; i++) s += v[i]; return s / n; };
+    let best = [-1, p0, 0];
+    for (let p = p0 * 0.94; p <= p0 * 1.06; p += 0.02) for (let f = 0; f < p; f += 0.5) { const s = punt(p, f); if (s > best[0]) best = [s, p, f]; }
+    return { p: best[1], fase: best[2], punteggio: best[0] / media, es };
+  }
+  function estensione(r) { // prima e ultima linea del pettine che cadono su un bordo vero
+    const { p, fase, es } = r, N = es.length, hit = [];
+    for (let k = 0; fase + k * p < N + p; k++) { const x = Math.round(fase + k * p); hit.push(x >= 0 && x < N ? es[x] : 0); }
+    const ord = hit.slice().sort((a, b) => b - a), n = Math.max(1, Math.floor(ord.length * 0.3)), ref = ord.slice(0, n).reduce((a, b) => a + b, 0) / n;
+    let k0 = -1, k1 = -1;
+    hit.forEach((h, k) => { if (h >= 0.4 * ref) { if (k0 < 0) k0 = k; k1 = k; } });
+    let forti = 0; hit.forEach((h, k) => { if (k >= k0 && k <= k1 && h >= 0.4 * ref) forti++; });
+    return { k0, k1, riempimento: k0 < 0 ? 0 : forti / (k1 - k0 + 1) };
+  }
+  function rilevaGriglia(img) {
+    const { w, h, data } = img, L = new Float32Array(w * h);
+    for (let i = 0; i < w * h; i++) { const a = data[i * 4 + 3] / 255; L[i] = (0.299 * data[i * 4] + 0.587 * data[i * 4 + 1] + 0.114 * data[i * 4 + 2]) * a + 255 * (1 - a); }
+    const Ex = new Float32Array(w), Ey = new Float32Array(h);
+    for (let y = 0; y < h; y++) for (let x = 1; x < w; x++) Ex[x] += Math.abs(L[y * w + x] - L[y * w + x - 1]) / h;
+    for (let y = 1; y < h; y++) for (let x = 0; x < w; x++) Ey[y] += Math.abs(L[y * w + x] - L[(y - 1) * w + x]) / w;
+    const rx = trovaPasso(Ex), ry = trovaPasso(Ey);
+    if (!rx || !ry) return null;
+    // asse con le linee della griglia visibili: serve il tratto con linee. Senza linee (solo cambi di colore):
+    // la griglia occupa tutta l'immagine.
+    const asse = (r, N) => {
+      const e = estensione(r);
+      if (e.k0 >= 0 && e.riempimento >= 0.7) return { x0: r.fase + e.k0 * r.p, n: e.k1 - e.k0 };
+      const x0 = r.fase > 0.5 * r.p ? r.fase - r.p : r.fase;
+      return { x0, n: Math.round((N - x0) / r.p) };
+    };
+    const ax = asse(rx, w), ay = asse(ry, h);
+    if (ax.n < 2 || ay.n < 2) return null;
+    return { px: rx.p, py: ry.p, x0: ax.x0, y0: ay.x0, cols: ax.n, rows: ay.n, conf: Math.min(rx.punteggio, ry.punteggio) };
+  }
+  // colore di ogni quadretto = mediana della zona centrale (insensibile alle linee della griglia)
+  function leggiQuadretti(img, g) {
+    const { w, h, data } = img, rgb = new Float32Array(g.cols * g.rows * 3), vuoto = new Uint8Array(g.cols * g.rows);
+    const med = (v) => { v.sort((a, b) => a - b); return v[v.length >> 1]; };
+    for (let r = 0; r < g.rows; r++) for (let c = 0; c < g.cols; c++) {
+      const xa = Math.round(g.x0 + (c + 0.3) * g.px), xb = Math.max(xa, Math.round(g.x0 + (c + 0.7) * g.px));
+      const ya = Math.round(g.y0 + (r + 0.3) * g.py), yb = Math.max(ya, Math.round(g.y0 + (r + 0.7) * g.py));
+      const R = [], G = [], B = [];
+      for (let y = Math.max(0, ya); y <= Math.min(h - 1, yb); y++) for (let x = Math.max(0, xa); x <= Math.min(w - 1, xb); x++) {
+        const k = (y * w + x) * 4, a = data[k + 3] / 255;
+        R.push(data[k] * a + 255 * (1 - a)); G.push(data[k + 1] * a + 255 * (1 - a)); B.push(data[k + 2] * a + 255 * (1 - a));
+      }
+      const i = r * g.cols + c;
+      if (!R.length) { vuoto[i] = 1; continue; }
+      rgb[i * 3] = med(R); rgb[i * 3 + 1] = med(G); rgb[i * 3 + 2] = med(B);
+    }
+    return { rgb, vuoto };
   }
 
   // Misure indicative (mm, larghezza x lunghezza) dei Delica: variano un po' tra fonti e lotti, quindi sono modificabili.
@@ -317,6 +407,6 @@
     }
   }
 
-  const api = { normCodice, fmtCodice, colore, cerca, paletteDefault, PERLINE, opzioniFoto, lum, campiona, quantizza, paletteDaFoto, MODELLI, applicaModello, rombiAlt, prng, casuale, lettera, nuovaGriglia, ridimensiona, genera, ripetiModulo, conteggi, rp, stimaMisure, lettura, riempi };
+  const api = { normCodice, fmtCodice, colore, cerca, paletteDefault, PERLINE, opzioniFoto, lum, campiona, quantizza, paletteDaFoto, rilevaGriglia, leggiQuadretti, MODELLI, applicaModello, rombiAlt, prng, casuale, lettera, nuovaGriglia, ridimensiona, genera, ripetiModulo, conteggi, rp, stimaMisure, lettura, riempi };
   if (typeof module !== 'undefined') module.exports = api; else root.Core = api;
 })(typeof window !== 'undefined' ? window : globalThis);
