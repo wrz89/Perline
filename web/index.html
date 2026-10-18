@@ -20,6 +20,7 @@ input,select,button{font:inherit}
 input[type=number]{width:70px}input[type=text]{width:150px}
 button{padding:5px 10px;border:1px solid var(--line);background:#fff;border-radius:6px;cursor:pointer}
 button:hover{background:#eee}button.pri{background:var(--acc);color:#fff;border-color:var(--acc)}
+a.bt,label.bt{padding:5px 10px;border:1px solid var(--line);background:#fff;border-radius:6px;cursor:pointer;color:inherit;text-decoration:none;display:inline-block;margin:0}
 button.on{outline:2px solid var(--acc)}
 .row{display:flex;flex-wrap:wrap;gap:6px}
 .sw{width:20px;height:20px;border:1px solid #888;border-radius:3px;display:inline-block;vertical-align:middle}
@@ -51,8 +52,11 @@ small{color:var(--mut)}
  <button id="nuovo">Nuovo</button>
  <button id="elimina">Elimina</button>
  <button id="stampa">Stampa / PDF</button>
+ <button id="esporta">Esporta</button>
+ <label class="bt">Importa<input type="file" id="importa" accept=".json" hidden></label>
+ <a href="guida.html" target="_blank" class="bt">Guida</a>
  <button id="esci">Chiudi app</button>
- <span id="msg"></span>
+ <span id="msg"></span> <small id="dove"></small>
 </header>
 <main>
 <aside>
@@ -70,8 +74,17 @@ small{color:var(--mut)}
   <label><span>Simmetria (specchio)</span><input type="checkbox" id="simm"></label>
  </div>
  <div class="card"><h2>Colori (Delica DB)</h2><div id="pal"></div>
-  <button id="addcol">+ colore</button>
+  <div class="row"><button id="addcol">+ colore</button><select id="libreria"></select></div>
   <small>Clic sulla riga per sceglierlo. Codici e tinte sono modificabili.</small>
+ </div>
+ <div class="card"><h2>Generatore casuale</h2>
+  <div id="r-col"></div>
+  <label>Simmetria <select id="r-simm"><option value="orizz">Specchio sinistra/destra</option><option value="orizz-vert">Specchio doppio</option><option value="nessuna">Nessuna</option></select></label>
+  <label>Dimensione blocchi <select id="r-blocco"><option>1</option><option>2</option><option>3</option><option>4</option></select></label>
+  <label>Ripeti ogni N righe <input type="number" id="r-mod" min="0" max="200" value="0"></label>
+  <label>Seme <input type="number" id="r-seme" value="1"></label>
+  <div class="row"><button class="pri" id="r-gen">Nuovo casuale</button><button id="r-ripeti">Rigenera col seme</button></div>
+  <small>Stesso seme = stesso disegno. 0 righe = nessuna ripetizione.</small>
  </div>
  <div class="card"><h2>Generatore motivo</h2>
   <label>Motivo <select id="g-tipo"><option value="rombi">Rombi</option><option value="chevron">Chevron</option><option value="righe">Righe</option></select></label>

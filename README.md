@@ -25,6 +25,9 @@ misure e filo stimati, foglio di lavoro da stampare o salvare in PDF.
 L'exe viene compilato dalla GitHub Action `Perline exe` a ogni modifica e pubblicato nella
 release `perline-latest`.
 
+## Guida
+Guida completa: [GUIDA.md](GUIDA.md) (e nell'app, pulsante **Guida**).
+
 ## Uso rapido
 - Colori: clic su una riga della palette, poi disegna. Codici DB e tinte sono modificabili.
 - **Generatore**: scegli motivo, righe per modulo e i colori degli anelli (centro -> sfondo).

@@ -106,7 +106,7 @@
       rm.addEventListener('click', (e) => { e.stopPropagation(); rimuoviColore(i); });
       $('pal').appendChild(d);
     });
-    opzioniColore();
+    opzioniColore(); if (window.__rc) listaCasuale();
   }
   function rimuoviColore(i) {
     S.palette.splice(i, 1);
@@ -165,30 +165,96 @@
   };
 
   // ---- progetti ----
+  // Con il server locale i progetti vanno nella cartella "dati"; aprendo index.html direttamente
+  // (file://) o se il server non risponde si usa la memoria del browser (localStorage).
+  let usaServer = location.protocol.indexOf('http') === 0;
+  const PFX = 'perline:';
   async function api(metodo, url, corpo) {
     const r = await fetch(url, { method: metodo, body: corpo ? JSON.stringify(corpo) : undefined, headers: corpo ? { 'Content-Type': 'application/json' } : undefined });
     if (!r.ok) throw new Error((await r.json().catch(() => ({}))).errore || r.status);
     return r.json();
   }
+  const lsGet = (k) => { try { return localStorage.getItem(k); } catch (e) { return null; } };
+  const archivio = {
+    async lista() {
+      if (usaServer) { try { return await api('GET', '/api/progetti'); } catch (e) { usaServer = false; } }
+      try { return Object.keys(localStorage).filter((k) => k.indexOf(PFX) === 0).map((k) => k.slice(PFX.length)).sort(); } catch (e) { return []; }
+    },
+    async salva(n, dati) {
+      if (usaServer) return api('PUT', '/api/progetti/' + encodeURIComponent(n), dati);
+      try { localStorage.setItem(PFX + n, JSON.stringify(dati)); } catch (e) { throw new Error('memoria del browser non disponibile'); }
+    },
+    async apri(n) {
+      if (usaServer) return api('GET', '/api/progetti/' + encodeURIComponent(n));
+      const t = lsGet(PFX + n); if (!t) throw new Error('non trovato'); return JSON.parse(t);
+    },
+    async elimina(n) {
+      if (usaServer) return api('DELETE', '/api/progetti/' + encodeURIComponent(n));
+      try { localStorage.removeItem(PFX + n); } catch (e) {}
+    },
+  };
   async function elenco() {
-    const nomi = await api('GET', '/api/progetti');
+    const nomi = await archivio.lista();
     $('elenco').innerHTML = '<option value="">Apri progetto…</option>' + nomi.map((n) => `<option>${esc(n)}</option>`).join('');
+    $('dove').textContent = usaServer ? '' : 'Salvataggio nel browser (usa Esporta per un file di backup)';
+  }
+  function carica(dati) {
+    if (!dati || !Array.isArray(dati.celle) || !Array.isArray(dati.palette) || !dati.celle.length) throw new Error('file non valido');
+    S = dati; S.w = S.celle[0].length; S.h = S.celle.length; S.opz = { ...OPZ, ...(S.opz || {}) };
+    undoSt = []; redoSt = []; colore = 0; sync();
   }
   $('salva').onclick = async () => {
     S.nome = $('nome').value.trim();
     if (!S.nome) return msg('Dai un nome al progetto');
-    try { await api('PUT', '/api/progetti/' + encodeURIComponent(S.nome), S); msg('Salvato'); elenco(); } catch (e) { msg('Errore: ' + e.message); }
+    try { await archivio.salva(S.nome, S); msg('Salvato'); elenco(); } catch (e) { msg('Errore: ' + e.message); }
   };
   $('elenco').onchange = async () => {
     const n = $('elenco').value; if (!n) return;
-    try { S = await api('GET', '/api/progetti/' + encodeURIComponent(n)); S.opz = { ...OPZ, ...(S.opz || {}) }; undoSt = []; redoSt = []; colore = 0; sync(); msg('Aperto: ' + n); } catch (e) { msg('Errore: ' + e.message); }
+    try { carica(await archivio.apri(n)); msg('Aperto: ' + n); } catch (e) { msg('Errore: ' + e.message); }
   };
   $('nuovo').onclick = () => { S = nuovoProgetto(); undoSt = []; redoSt = []; colore = 0; sync(); };
   $('elimina').onclick = async () => {
     const n = $('nome').value.trim(); if (!n || !confirm('Eliminare "' + n + '"?')) return;
-    try { await api('DELETE', '/api/progetti/' + encodeURIComponent(n)); msg('Eliminato'); elenco(); } catch (e) { msg('Errore: ' + e.message); }
+    try { await archivio.elimina(n); msg('Eliminato'); elenco(); } catch (e) { msg('Errore: ' + e.message); }
   };
-  $('esci').onclick = async () => { if (confirm('Chiudere Perline?')) { try { await api('POST', '/api/esci'); } catch (e) {} document.body.innerHTML = '<p style="padding:20px">Perline chiuso. Puoi chiudere questa scheda.</p>'; } };
+  $('esporta').onclick = () => {
+    S.nome = $('nome').value.trim() || 'progetto';
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([JSON.stringify(S)], { type: 'application/json' }));
+    a.download = S.nome.replace(/[^\w .()-]+/g, '_') + '.perline.json'; a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  };
+  $('importa').onchange = async () => {
+    const f = $('importa').files[0]; if (!f) return;
+    try { const d = JSON.parse(await f.text()); carica(d); msg('Importato: ' + (d.nome || f.name)); } catch (e) { msg('Errore: ' + e.message); }
+    $('importa').value = '';
+  };
+  $('esci').onclick = async () => {
+    if (!usaServer) return msg('Puoi chiudere questa scheda del browser');
+    if (confirm('Chiudere Perline?')) { try { await api('POST', '/api/esci'); } catch (e) {} document.body.innerHTML = '<p style="padding:20px">Perline chiuso. Puoi chiudere questa scheda.</p>'; }
+  };
+
+  // ---- libreria colori e generatore casuale ----
+  $('libreria').innerHTML = '<option value="">+ dalla libreria colori…</option>' + C.LIBRERIA.map((c, i) => `<option value="${i}">${c.nome}</option>`).join('');
+  $('libreria').onchange = () => {
+    const i = $('libreria').value; $('libreria').value = ''; if (i === '' || S.palette.length >= 26) return;
+    S.palette.push({ ...C.LIBRERIA[+i] }); colore = S.palette.length - 1; disegnaPalette(); msg('Aggiunto: scrivi il codice DB accanto al colore');
+  };
+  function listaCasuale() {
+    const sel = Array.from(document.querySelectorAll('#r-col input:checked')).map((x) => +x.value);
+    const prima = new Set(sel);
+    $('r-col').innerHTML = S.palette.map((c, i) => `<label style="justify-content:flex-start"><input type="checkbox" value="${i}" ${prima.size ? (prima.has(i) ? 'checked' : '') : (i < 3 ? 'checked' : '')}><span class="sw" style="background:${c.hex}"></span> ${C.lettera(i)} ${esc(c.cod || c.nome)}</label>`).join('');
+  }
+  function generaCasuale(nuovoSeme) {
+    const colori = Array.from(document.querySelectorAll('#r-col input:checked')).map((x) => +x.value);
+    if (!colori.length) return msg('Spunta almeno un colore');
+    if (nuovoSeme) $('r-seme').value = Math.floor(Math.random() * 1e6);
+    snapshot();
+    S.celle = C.casuale(S.w, S.h, { colori, seme: +$('r-seme').value || 1, blocco: +$('r-blocco').value, simm: $('r-simm').value, modulo: +$('r-mod').value || 0 });
+    ridisegna(); disegnaPalette();
+  }
+  $('r-gen').onclick = () => generaCasuale(true);
+  $('r-ripeti').onclick = () => generaCasuale(false);
 
   // ---- stampa ----
   $('stampa').onclick = () => {
@@ -203,7 +269,8 @@
     window.print();
   };
 
-  fetch('/api/versione').then((r) => r.json()).then((v) => ($('ver').textContent = 'v' + v.versione)).catch(() => {});
+  window.__rc = true; listaCasuale();
+  if (usaServer) fetch('/api/versione').then((r) => r.json()).then((v) => ($('ver').textContent = 'v' + v.versione)).catch(() => {});
   elenco().catch(() => {});
   sync();
 })();
