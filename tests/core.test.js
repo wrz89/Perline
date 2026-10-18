@@ -122,4 +122,67 @@ for (const [id, W] of [['fiore4', 15], ['cuore', 15], ['stella5', 15], ['croce',
 }
 const g2 = C.applicaMotivo(MOTIVI.find((m) => m.id === 'cuore'), 16, 30, { c1: 1, c2: 2, c3: 3, sfondo: 0, scala: 2, bordo: 1 });
 assert.strictEqual(g2[5][0], 1); assert.strictEqual(g2[5][15], 1);
+// i motivi si adattano al numero di righe: ripetizioni intere (mai tagliate) e margini uguali sopra e sotto
+for (const m of MOTIVI.filter((x) => x.tipo === 'singolo')) {
+  for (const h of [37, 50, 64, 100, 123]) {
+    const g = C.applicaMotivo(m, 21, h, { c1: 1, c2: 2, c3: 3, sfondo: 0, scala: 1 });
+    const pieno = g.map((r) => r.some((v) => v !== 0));
+    const prima = pieno.indexOf(true), ultima = pieno.lastIndexOf(true);
+    assert.ok(prima >= 0 && Math.abs(prima - (h - 1 - ultima)) <= 1, `${m.id} h=${h}: margini ${prima} / ${h - 1 - ultima}`);
+    // il motivo non e' mai tagliato in basso: il numero di righe piene e' multiplo di... almeno una ripetizione completa
+    const righeMotivo = m.righe.length;
+    let blocchi = 0; for (let r = 0; r < h; r++) if (pieno[r] && (r === 0 || !pieno[r - 1])) blocchi++;
+    assert.ok(blocchi >= 1);
+    const conta = g.flat().filter((v) => v !== 0).length, uno = C.applicaMotivo(m, 21, righeMotivo, { c1: 1, c2: 2, c3: 3, sfondo: 0, scala: 1, gap: 0 }).flat().filter((v) => v !== 0).length;
+    assert.strictEqual(conta % uno, 0, `${m.id} h=${h}: motivo tagliato (${conta} / ${uno})`);
+  }
+}
+// scala automatica: il motivo piu' piccolo si ingrandisce se c'e' spazio
+const gAuto = C.applicaMotivo(MOTIVI.find((x) => x.id === 'cuoricino'), 21, 60, { c1: 1, c2: 2, c3: 3, sfondo: 0, scala: 'auto' });
+assert.ok(gAuto.some((r) => r.filter((v) => v === 1).length >= 12)); // x3 => righe da 21 perline -> almeno 12 per riga
+// periodici: un numero intero di periodi in h righe (prima e ultima riga come l'inizio e la fine di un periodo)
+const zz = MOTIVI.find((x) => x.id === 'zigzag');
+for (const h of [30, 47, 100]) {
+  const g = C.applicaMotivo(zz, 16, h, { c1: 1, c2: 2, c3: 3, sfondo: 0, scala: 1 });
+  const n = Math.round(h / zz.righe.length);
+  assert.deepStrictEqual(g[0], C.applicaMotivo(zz, 16, zz.righe.length, { c1: 1, c2: 2, c3: 3, sfondo: 0, scala: 1 })[0]);
+  assert.deepStrictEqual(g[h - 1], C.applicaMotivo(zz, 16, zz.righe.length, { c1: 1, c2: 2, c3: 3, sfondo: 0, scala: 1 })[zz.righe.length - 1], `zigzag h=${h} n=${n}`);
+}
+assert.strictEqual(C.adattaPeriodo(14, 100), 100 / 7);
+// immagini inclinate e raddrizzamento
+{
+  const cell = 11, cols = 8, rows = 12, mar = 20, W = cols * cell + 1 + 2 * mar, H = rows * cell + 1 + 2 * mar;
+  const d = new Uint8ClampedArray(W * H * 4).fill(255), put = (x, y, v) => { const k = (y * W + x) * 4; d[k] = v[0]; d[k + 1] = v[1]; d[k + 2] = v[2]; };
+  for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) for (let y = 0; y < cell; y++) for (let x = 0; x < cell; x++) put(mar + c * cell + x, mar + r * cell + y, (r * 3 + c) % 4 === 0 ? [20, 20, 20] : [235, 200, 170]);
+  for (let c = 0; c <= cols; c++) for (let y = 0; y <= rows * cell; y++) put(mar + c * cell, mar + y, [120, 100, 90]);
+  for (let r = 0; r <= rows; r++) for (let x = 0; x <= cols * cell; x++) put(mar + x, mar + r * cell, [120, 100, 90]);
+  const im = { w: W, h: H, data: d };
+  for (const gr of [-8, 4, 10]) {
+    const r = C.rilevaGrigliaRobusta(C.ruota(im, gr));
+    assert.ok(r, 'inclinata di ' + gr + ' non rilevata'); assert.strictEqual(r.g.cols, cols); assert.strictEqual(r.g.rows, rows);
+    assert.ok(Math.abs(r.angolo + gr) <= 1.5, `angolo stimato ${r.angolo} per ${gr}`);
+  }
+  // raddrizza: il quadrilatero = l'intero schema -> griglia riconosciuta
+  const q = [[mar, mar], [mar + cols * cell, mar], [mar + cols * cell, mar + rows * cell], [mar, mar + rows * cell]];
+  const dr = C.raddrizza(im, [q[2], q[0], q[3], q[1]], 900); // ordine qualsiasi
+  const gr = C.rilevaGriglia(dr); assert.ok(gr && gr.cols === cols && gr.rows === rows, 'raddrizza');
+  // una foto qualunque non e' una griglia (nemmeno inclinata)
+  const f = new Uint8ClampedArray(160 * 120 * 4); for (let y = 0; y < 120; y++) for (let x = 0; x < 160; x++) { const k = (y * 160 + x) * 4; f[k] = (x * 3) % 256; f[k + 1] = (y * 5) % 256; f[k + 2] = 90; f[k + 3] = 255; }
+  assert.strictEqual(C.rilevaGrigliaRobusta({ w: 160, h: 120, data: f }), null);
+}
+// miglioramenti foto: livelli, sfondo appiattito, pulizia
+{
+  const W = 6, H = 6, camp = { rgb: new Float32Array(W * H * 3), vuoto: new Uint8Array(W * H) };
+  for (let i = 0; i < W * H; i++) { const v = 100 + (i % 5) * 10; camp.rgb.set([v, v, v], i * 3); } // grigi 100-140: poco contrasto
+  C.migliora(camp, W, H, { livelli: true });
+  assert.ok(Math.max(...camp.rgb) >= 240 && Math.min(...camp.rgb) <= 15, 'livelli non stirati');
+  const c2 = { rgb: new Float32Array(W * H * 3).fill(200), vuoto: new Uint8Array(W * H) };
+  for (let r = 2; r < 4; r++) for (let c = 2; c < 4; c++) c2.rgb.set([20, 20, 20], (r * W + c) * 3);
+  c2.rgb.set([205, 198, 202], 0); // sfondo leggermente diverso
+  C.migliora(c2, W, H, { sfondo: true });
+  assert.deepStrictEqual(Array.from(c2.rgb.slice(0, 3)), Array.from(c2.rgb.slice(3, 6))); // sfondo uniforme
+  assert.strictEqual(c2.rgb[(2 * W + 2) * 3], 20); // il soggetto resta
+  const g = [[0, 0, 0, 0], [0, 1, 0, 0], [0, 0, 0, 0], [2, 2, 2, 2]];
+  C.pulisci(g, 1); assert.strictEqual(g[1][1], 0); assert.deepStrictEqual(g[3], [2, 2, 2, 2]);
+}
 console.log('core ok');

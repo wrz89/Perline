@@ -94,6 +94,7 @@ footer{padding:8px 14px;color:var(--mut);font-size:12px}
   <canvas id="foto-anteprima" style="display:none;max-width:100%;margin:6px 0;border:1px solid var(--line)"></canvas>
   <label>Tipo di immagine <select id="foto-tipo"><option value="auto">Automatico</option><option value="foto">Foto (riduci sulla griglia)</option><option value="schema">Schema a quadretti (leggi i quadretti)</option></select></label>
   <small id="foto-info"></small>
+  <div class="row"><button id="foto-raddrizza" style="display:none">Raddrizza (4 angoli)</button><button id="foto-originale" style="display:none">Originale</button></div>
   <div id="foto-blocco-schema" style="display:none">
    <label>Colonne (vuoto = automatico) <input type="number" id="foto-cols" min="2" max="150"></label>
    <label>Righe (vuoto = automatico) <input type="number" id="foto-righe" min="2" max="1000"></label>
@@ -107,6 +108,11 @@ footer{padding:8px 14px;color:var(--mut);font-size:12px}
   <label><span>Ruota di 90°</span><input type="checkbox" id="foto-ruota"></label>
   <label><span>Sfumatura (dithering)</span><input type="checkbox" id="foto-dither"></label>
   <label>Contrasto <input type="range" id="foto-contr" min="-60" max="100" value="0"></label>
+  <label><span>Livelli automatici</span><input type="checkbox" id="foto-liv" checked></label>
+  <label>Saturazione <input type="range" id="foto-sat" min="-50" max="100" value="20"></label>
+  <label>Nitidezza <input type="range" id="foto-nit" min="0" max="100" value="30"></label>
+  <label><span>Appiattisci lo sfondo</span><input type="checkbox" id="foto-bgf"></label>
+  <label>Pulizia punti isolati <select id="foto-pul"><option value="0">nessuna</option><option value="1" selected>leggera</option><option value="2">forte</option></select></label>
   </div>
   <label>Colori <select id="foto-colori"><option value="palette">Quelli della palette</option><option value="foto">Ricavali dalla foto</option></select></label>
   <label id="foto-n-riga" style="display:none">Quanti colori <input type="number" id="foto-n" min="2" max="12" placeholder="auto"></label>
@@ -119,7 +125,8 @@ footer{padding:8px 14px;color:var(--mut);font-size:12px}
   <label>Colore 2 <select id="m-c2"></select></label>
   <label>Colore 3 <select id="m-c3"></select></label>
   <label>Sfondo <select id="m-bg"></select></label>
-  <label>Ingrandimento <select id="m-scala"><option value="1">×1</option><option value="2">×2</option><option value="3">×3</option></select></label>
+  <label>Ingrandimento <select id="m-scala"><option value="auto">Automatico</option><option value="1">×1</option><option value="2">×2</option><option value="3">×3</option><option value="4">×4</option></select></label>
+  <label><span>Adatta alle righe</span><input type="checkbox" id="m-adatta" checked></label>
   <label>Spazio tra i motivi (righe) <input type="number" id="m-gap" min="0" max="30" placeholder="auto"></label>
   <label>Bordo laterale <select id="m-bordo"><option value="0">nessuno</option><option value="1">1 colonna</option><option value="2">2 colonne</option></select></label>
   <button class="pri" id="m-applica">Applica motivo</button>
@@ -140,6 +147,7 @@ footer{padding:8px 14px;color:var(--mut);font-size:12px}
   <label>Rombo alt.: larghezza <input type="number" id="g-dw" min="2" max="60" value="9"></label>
   <label>Rombo alt.: altezza <input type="number" id="g-dh" min="2" max="120" value="11"></label>
   <label>Rombo alt.: bordo <select id="g-bordo"><option value="sottile">sottile</option><option value="medio" selected>medio</option><option value="largo">largo</option></select></label>
+  <label><span>Adatta alle righe</span><input type="checkbox" id="g-adatta" checked></label>
   <small>Rombi alternati: Anello 1 = rombo A, Anello 2 = rombo B, Anello 4 = sfondo.</small>
   <label>Anello 1 (centro) <select id="g-c0"></select></label>
   <label>Anello 2 <select id="g-c1"></select></label>
@@ -155,6 +163,11 @@ footer{padding:8px 14px;color:var(--mut);font-size:12px}
 </section>
 </main>
 <footer>Codici e tinte Miyuki Delica da <a href="https://github.com/makebead/craft-color-codes">makebead/craft-color-codes</a> (CC BY 4.0, foto ufficiali Miyuki): tinte approssimate, controlla sempre la bustina.</footer>
+<div id="rad" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:50;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:12px">
+ <div style="color:#fff;text-align:center">Clicca i 4 angoli dello schema (in qualsiasi ordine); puoi trascinare i punti per aggiustarli.</div>
+ <canvas id="rad-cv" style="max-width:92vw;max-height:72vh;background:#fff;cursor:crosshair"></canvas>
+ <div class="row"><button class="pri" id="rad-ok" disabled>Raddrizza</button><button id="rad-reset">Ricomincia</button><button id="rad-annulla">Annulla</button></div>
+</div>
 <div id="sheet"></div>
 <script src="delica.js"></script>
 <script src="motivi.js"></script>

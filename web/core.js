@@ -191,17 +191,26 @@
     for (let p = p0 * 0.94; p <= p0 * 1.06; p += 0.02) for (let f = 0; f < p; f += 0.5) { const s = punt(p, f); if (s > best[0]) best = [s, p, f]; }
     return { p: best[1], fase: best[2], punteggio: best[0] / media, es };
   }
-  function estensione(r) { // prima e ultima linea del pettine che cadono su un bordo vero
+  function estensione(r) { // tratto di linee del pettine che copre il reticolo: massimizza la somma di (picco - soglia) (Kadane)
     const { p, fase, es } = r, N = es.length, hit = [];
     for (let k = 0; fase + k * p < N + p; k++) { const x = Math.round(fase + k * p); hit.push(x >= 0 && x < N ? es[x] : 0); }
-    const ord = hit.slice().sort((a, b) => b - a), n = Math.max(1, Math.floor(ord.length * 0.3)), ref = ord.slice(0, n).reduce((a, b) => a + b, 0) / n;
-    let k0 = -1, k1 = -1;
-    hit.forEach((h, k) => { if (h >= 0.4 * ref) { if (k0 < 0) k0 = k; k1 = k; } });
-    let forti = 0; hit.forEach((h, k) => { if (k >= k0 && k <= k1 && h >= 0.4 * ref) forti++; });
-    return { k0, k1, riempimento: k0 < 0 ? 0 : forti / (k1 - k0 + 1) };
+    const ord = hit.slice().sort((a, b) => b - a), n = Math.max(1, Math.floor(ord.length * 0.3)), top = ord.slice(0, n), ref = top[top.length >> 1], thr = 0.4 * ref;
+    let best = -Infinity, k0 = -1, k1 = -1, cur = 0, s = 0;
+    hit.forEach((h, k) => {
+      if (cur <= 0) { cur = 0; s = k; }
+      cur += h - thr;
+      if (cur > best) { best = cur; k0 = s; k1 = k; }
+    });
+    // le linee ai margini del tratto devono essere vere (non solo "a pareggio")
+    while (k0 < k1 && hit[k0] < thr) k0++;
+    while (k1 > k0 && hit[k1] < thr) k1--;
+    return { k0, k1, riempimento: 1 };
   }
-  function rilevaGriglia(img) {
-    const { w, h, data } = img, L = new Float32Array(w * h);
+  function rilevaGriglia(img0) {
+    // margine bianco: le linee che coincidono con il bordo dell'immagine diventano rilevabili
+    const M = 12, w = img0.w + 2 * M, h = img0.h + 2 * M, data = new Uint8ClampedArray(w * h * 4).fill(255);
+    for (let y = 0; y < img0.h; y++) for (let x = 0; x < img0.w; x++) { const k = (y * img0.w + x) * 4, o = ((y + M) * w + x + M) * 4; data[o] = img0.data[k]; data[o + 1] = img0.data[k + 1]; data[o + 2] = img0.data[k + 2]; data[o + 3] = img0.data[k + 3]; }
+    const L = new Float32Array(w * h);
     for (let i = 0; i < w * h; i++) { const a = data[i * 4 + 3] / 255; L[i] = (0.299 * data[i * 4] + 0.587 * data[i * 4 + 1] + 0.114 * data[i * 4 + 2]) * a + 255 * (1 - a); }
     const Ex = new Float32Array(w), Ey = new Float32Array(h);
     for (let y = 0; y < h; y++) for (let x = 1; x < w; x++) Ex[x] += Math.abs(L[y * w + x] - L[y * w + x - 1]) / h;
@@ -210,15 +219,29 @@
     if (!rx || !ry) return null;
     // asse con le linee della griglia visibili: serve il tratto con linee. Senza linee (solo cambi di colore):
     // la griglia occupa tutta l'immagine.
+    // affina posizione e passo con una retta ai picchi veri (corregge la deriva su griglie lunghe o appena inclinate)
+    const affina = (es, x0, p, n) => {
+      const ref = Math.max(...es), pts = [];
+      for (let k = 0; k <= n; k++) {
+        const c0 = x0 + k * p; let bi = -1, bv = 0;
+        for (let x = Math.max(1, Math.round(c0 - 0.3 * p)); x <= Math.min(es.length - 2, Math.round(c0 + 0.3 * p)); x++) if (es[x] > bv) { bv = es[x]; bi = x; }
+        if (bi >= 0 && bv >= 0.25 * ref) pts.push([k, bi]);
+      }
+      if (pts.length < 4) return { x0, p };
+      const m = pts.length, sk = pts.reduce((a, q) => a + q[0], 0), sx = pts.reduce((a, q) => a + q[1], 0), skk = pts.reduce((a, q) => a + q[0] * q[0], 0), skx = pts.reduce((a, q) => a + q[0] * q[1], 0);
+      const den = m * skk - sk * sk; if (!den) return { x0, p };
+      const b = (m * skx - sk * sx) / den, a = (sx - b * sk) / m;
+      return Math.abs(b - p) < 0.1 * p ? { x0: a, p: b } : { x0, p };
+    };
     const asse = (r, N) => {
       const e = estensione(r);
-      if (e.k0 >= 0 && e.riempimento >= 0.7) return { x0: r.fase + e.k0 * r.p, n: e.k1 - e.k0 };
+      if (e.k0 >= 0 && e.k1 - e.k0 >= 5) { const x0 = r.fase + e.k0 * r.p, n = e.k1 - e.k0, f = affina(r.es, x0, r.p, n); return { x0: f.x0, n, p: f.p }; }
       const x0 = r.fase > 0.5 * r.p ? r.fase - r.p : r.fase;
-      return { x0, n: Math.round((N - x0) / r.p) };
+      return { x0, n: Math.round((N - x0) / r.p), p: r.p };
     };
     const ax = asse(rx, w), ay = asse(ry, h);
     if (ax.n < 2 || ay.n < 2) return null;
-    return { px: rx.p, py: ry.p, x0: ax.x0, y0: ay.x0, cols: ax.n, rows: ay.n, conf: Math.min(rx.punteggio, ry.punteggio) };
+    return { px: ax.p, py: ay.p, x0: ax.x0 - M, y0: ay.x0 - M, cols: ax.n, rows: ay.n, conf: Math.min(rx.punteggio, ry.punteggio) };
   }
   // colore di ogni quadretto = mediana della zona centrale (insensibile alle linee della griglia)
   function leggiQuadretti(img, g) {
@@ -259,27 +282,198 @@
   }
 
   // ---- libreria motivi: ripete un motivo (o un tassello) su una griglia w x h ----
-  // o: { c1, c2, c3, sfondo } indici palette; scala (1-3); gap = righe vuote tra le ripetizioni (singolo); bordo = colonne ai lati in c1
+  // o: { c1, c2, c3, sfondo } indici palette; scala (1-4 oppure 'auto'); gap = righe vuote tra le ripetizioni; bordo = colonne ai lati in c1;
+  // adatta (predefinito: si') = il numero di righe viene riempito esattamente: ripetizioni intere, margini uguali sopra e sotto.
+  // Periodo di un motivo che si ripete, ridotto/allungato perche' in h righe ci stia un numero intero di periodi.
+  function adattaPeriodo(p, h) { return h / Math.max(1, Math.round(h / p)); }
   function applicaMotivo(m, w, h, o) {
-    const sc = Math.max(1, o.scala | 0 || 1), col = { '.': o.sfondo, 1: o.c1, 2: o.c2, 3: o.c3 };
-    const base = m.righe.map((r) => r.split('').flatMap((ch) => Array(sc).fill(col[ch]))).flatMap((r) => Array(sc).fill(r));
+    const adatta = o.adatta !== false, m0 = m.righe, mw0 = m0[0].length;
+    let sc = o.scala === 'auto' ? 1 : Math.max(1, (o.scala | 0) || 1);
+    if (o.scala === 'auto') { while (sc < 4 && mw0 * (sc + 1) <= w && m0.length * (sc + 1) <= h && (m.tipo !== 'periodico')) sc++; }
+    const col = { '.': o.sfondo, 1: o.c1, 2: o.c2, 3: o.c3 };
+    const base = m0.map((r) => r.split('').flatMap((ch) => Array(sc).fill(col[ch]))).flatMap((r) => Array(sc).fill(r));
     const mw = base[0].length, mh = base.length, g = nuovaGriglia(w, h, o.sfondo);
     if (m.tipo === 'periodico') {
-      const sx = Math.floor((w - 1) / 2 - (mw - 1) / 2);
-      for (let r = 0; r < h; r++) for (let c = 0; c < w; c++) g[r][c] = base[r % mh][(((c - sx) % mw) + mw) % mw];
+      const sx = Math.floor((w - 1) / 2 - (mw - 1) / 2), n = Math.max(1, Math.round(h / mh));
+      for (let r = 0; r < h; r++) {
+        const rs = adatta ? Math.floor(((r + 0.5) * n * mh) / h) % mh : r % mh;
+        for (let c = 0; c < w; c++) g[r][c] = base[rs][(((c - sx) % mw) + mw) % mw];
+      }
     } else {
       const gap = Math.max(0, o.gap === undefined ? m.gap || 2 : o.gap), gapX = Math.max(1, Math.round(gap / 2) + 1);
       const k = mw > w ? 1 : Math.max(1, Math.floor((w + gapX) / (mw + gapX)));
       const larg = k * mw + (k - 1) * gapX, x0 = Math.floor((w - larg) / 2);
-      for (let y0 = Math.floor(gap / 2); y0 < h; y0 += mh + gap) for (let i = 0; i < k; i++) {
+      let tops;
+      if (adatta) { // n ripetizioni intere, spazio avanzato diviso in parti uguali (con meta' sopra e sotto)
+        let best = 1, bc = Infinity;
+        for (let n = 1; n <= Math.max(1, Math.floor(h / mh)); n++) { const cost = Math.abs(h / n - mh - gap); if (cost <= bc) { bc = cost; best = n; } }
+        const pas = h / best, ge = pas - mh;
+        tops = Array.from({ length: best }, (_, i) => Math.round(i * pas + ge / 2));
+      } else { tops = []; for (let y0 = Math.floor(gap / 2); y0 < h; y0 += mh + gap) tops.push(y0); }
+      tops.forEach((y0) => { for (let i = 0; i < k; i++) {
         for (let r = 0; r < mh && y0 + r < h; r++) for (let c = 0; c < mw; c++) {
           const x = x0 + i * (mw + gapX) + c;
-          if (x >= 0 && x < w) g[y0 + r][x] = base[r][c];
+          if (x >= 0 && x < w && y0 + r >= 0) g[y0 + r][x] = base[r][c];
         }
-      }
+      } });
     }
     for (let b = 0; b < (o.bordo | 0); b++) for (let r = 0; r < h; r++) { if (b < w) { g[r][b] = o.c1; g[r][w - 1 - b] = o.c1; } }
     return g;
+  }
+
+  // ---- migliorie per le foto ----
+  // Prima della scelta dei colori: livelli automatici, saturazione, nitidezza e appiattimento dello sfondo (sulle celle campionate).
+  function migliora(camp, W, H, o) {
+    const rgb = camp.rgb, idx = []; for (let i = 0; i < W * H; i++) if (!camp.vuoto[i]) idx.push(i);
+    if (!idx.length) return camp;
+    const luma = (i) => 0.299 * rgb[i * 3] + 0.587 * rgb[i * 3 + 1] + 0.114 * rgb[i * 3 + 2];
+    if (o.livelli) { // stira l'istogramma tra il 1% e il 99%
+      const L = idx.map(luma).sort((a, b) => a - b), lo = L[Math.floor(L.length * 0.01)], hi = L[Math.min(L.length - 1, Math.floor(L.length * 0.99))];
+      if (hi - lo > 20) idx.forEach((i) => { for (let k = 0; k < 3; k++) rgb[i * 3 + k] = Math.max(0, Math.min(255, ((rgb[i * 3 + k] - lo) * 255) / (hi - lo))); });
+    }
+    if (o.nitidezza > 0) { // maschera di contrasto 3x3
+      const src = Float32Array.from(rgb);
+      for (let r = 0; r < H; r++) for (let cc = 0; cc < W; cc++) {
+        const i = r * W + cc; if (camp.vuoto[i]) continue;
+        for (let k = 0; k < 3; k++) {
+          let s = 0, n = 0;
+          for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) { const rr = r + dr, c2 = cc + dc; if (rr < 0 || rr >= H || c2 < 0 || c2 >= W || camp.vuoto[rr * W + c2]) continue; s += src[(rr * W + c2) * 3 + k]; n++; }
+          rgb[i * 3 + k] = Math.max(0, Math.min(255, src[i * 3 + k] + o.nitidezza * (src[i * 3 + k] - s / n)));
+        }
+      }
+    }
+    if (o.saturazione) idx.forEach((i) => { const g = luma(i); for (let k = 0; k < 3; k++) rgb[i * 3 + k] = Math.max(0, Math.min(255, g + (rgb[i * 3 + k] - g) * (1 + o.saturazione))); });
+    if (o.sfondo) { // colore dei bordi = sfondo; le celle collegate al bordo e simili diventano tutte uguali
+      const bordo = []; for (let r = 0; r < H; r++) for (let cc = 0; cc < W; cc++) if ((r === 0 || cc === 0 || r === H - 1 || cc === W - 1) && !camp.vuoto[r * W + cc]) bordo.push(r * W + cc);
+      const med = (k) => { const v = bordo.map((i) => rgb[i * 3 + k]).sort((a, b) => a - b); return v[v.length >> 1]; };
+      const bg = [med(0), med(1), med(2)], lb = lab(...bg), soglia = (o.soglia || 16) ** 2, vis = new Uint8Array(W * H), pila = bordo.slice();
+      while (pila.length) {
+        const i = pila.pop(); if (vis[i] || camp.vuoto[i]) continue;
+        if (d2(lab(rgb[i * 3], rgb[i * 3 + 1], rgb[i * 3 + 2]), lb) > soglia) continue;
+        vis[i] = 1; const r = (i / W) | 0, cc = i % W;
+        if (r > 0) pila.push(i - W); if (r < H - 1) pila.push(i + W); if (cc > 0) pila.push(i - 1); if (cc < W - 1) pila.push(i + 1);
+      }
+      for (let i = 0; i < W * H; i++) if (vis[i]) { rgb[i * 3] = bg[0]; rgb[i * 3 + 1] = bg[1]; rgb[i * 3 + 2] = bg[2]; }
+    }
+    return camp;
+  }
+  // Dopo la scelta dei colori: toglie le perline isolate (nessun vicino uguale) usando il colore piu' frequente intorno.
+  function pulisci(g, passate) {
+    const H = g.length, W = g[0].length;
+    for (let p = 0; p < (passate | 0); p++) {
+      const nuovo = g.map((r) => r.slice());
+      for (let r = 0; r < H; r++) for (let c = 0; c < W; c++) {
+        const cnt = new Map(); let uguali = 0, tot = 0;
+        for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
+          if (!dr && !dc) continue; const rr = r + dr, cc = c + dc; if (rr < 0 || rr >= H || cc < 0 || cc >= W) continue;
+          tot++; const v = g[rr][cc]; cnt.set(v, (cnt.get(v) || 0) + 1); if (v === g[r][c]) uguali++;
+        }
+        if (uguali <= 1 && tot >= 3) { let b = g[r][c], bn = 0; cnt.forEach((n, v) => { if (n > bn) { bn = n; b = v; } }); if (bn >= 3) nuovo[r][c] = b; }
+      }
+      for (let r = 0; r < H; r++) g[r] = nuovo[r];
+    }
+    return g;
+  }
+
+  // ---- raddrizzare le immagini (foto di sbieco / inclinate) ----
+  function campione(img, x, y) { // interpolazione bilineare, fuori dall'immagine = bianco
+    const { w, h, data } = img;
+    if (x < -0.5 || y < -0.5 || x > w - 0.5 || y > h - 0.5) return [255, 255, 255, 255];
+    const x0 = Math.max(0, Math.min(w - 2, Math.floor(x))), y0 = Math.max(0, Math.min(h - 2, Math.floor(y))), fx = Math.max(0, Math.min(1, x - x0)), fy = Math.max(0, Math.min(1, y - y0));
+    const o = [0, 0, 0, 0];
+    for (let k = 0; k < 4; k++) {
+      const a = data[(y0 * w + x0) * 4 + k], b = data[(y0 * w + x0 + 1) * 4 + k], cc = data[((y0 + 1) * w + x0) * 4 + k], d = data[((y0 + 1) * w + x0 + 1) * 4 + k];
+      o[k] = a * (1 - fx) * (1 - fy) + b * fx * (1 - fy) + cc * (1 - fx) * fy + d * fx * fy;
+    }
+    return o;
+  }
+  // ruota l'immagine di `gradi` (senza tagliare i bordi)
+  function ruota(img, gradi) {
+    const t = (gradi * Math.PI) / 180, cs = Math.cos(t), sn = Math.sin(t);
+    const W = Math.ceil(Math.abs(img.w * cs) + Math.abs(img.h * sn)), H = Math.ceil(Math.abs(img.w * sn) + Math.abs(img.h * cs));
+    const out = { w: W, h: H, data: new Uint8ClampedArray(W * H * 4) };
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      const dx = x - (W - 1) / 2, dy = y - (H - 1) / 2, sx = dx * cs + dy * sn + (img.w - 1) / 2, sy = -dx * sn + dy * cs + (img.h - 1) / 2;
+      const p = campione(img, sx, sy), k = (y * W + x) * 4; out.data[k] = p[0]; out.data[k + 1] = p[1]; out.data[k + 2] = p[2]; out.data[k + 3] = p[3];
+    }
+    return out;
+  }
+  function riduci(img, lato) { // riduzione a campionamento (per le stime veloci)
+    const f = Math.max(1, Math.ceil(Math.max(img.w, img.h) / lato)), w = Math.floor(img.w / f), h = Math.floor(img.h / f), L = new Float32Array(w * h);
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { let s = 0; for (let j = 0; j < f; j++) for (let i = 0; i < f; i++) { const k = ((y * f + j) * img.w + x * f + i) * 4; s += 0.299 * img.data[k] + 0.587 * img.data[k + 1] + 0.114 * img.data[k + 2]; } L[y * w + x] = s / (f * f); }
+    return { w, h, L };
+  }
+  // angolo (gradi) che rende orizzontali e verticali le linee: massimizza la "spigolosita'" dei profili dei contorni
+  function stimaAngolo(img, max) {
+    const pic = riduci(img, 260), { w, h, L } = pic, cx = (w - 1) / 2, cy = (h - 1) / 2, mx = Math.floor(w * 0.12), my = Math.floor(h * 0.12);
+    const punteggio = (gr) => {
+      const t = (gr * Math.PI) / 180, cs = Math.cos(t), sn = Math.sin(t), g = new Float32Array(w * h);
+      for (let y = my; y < h - my; y++) for (let x = mx; x < w - mx; x++) {
+        const dx = x - cx, dy = y - cy, sx = Math.round(dx * cs + dy * sn + cx), sy = Math.round(-dx * sn + dy * cs + cy);
+        g[y * w + x] = sx >= 0 && sx < w && sy >= 0 && sy < h ? L[sy * w + sx] : 255;
+      }
+      const Ex = new Float32Array(w), Ey = new Float32Array(h);
+      for (let y = my + 1; y < h - my - 1; y++) for (let x = mx + 1; x < w - mx - 1; x++) { Ex[x] += Math.abs(g[y * w + x] - g[y * w + x - 1]); Ey[y] += Math.abs(g[y * w + x] - g[(y - 1) * w + x]); }
+      const v = (E, a, b) => { let m = 0, n = b - a; for (let i = a; i < b; i++) m += E[i]; m /= n; let s = 0; for (let i = a; i < b; i++) s += (E[i] - m) ** 2; return s / n / (m * m + 1e-9); };
+      return v(Ex, mx + 1, w - mx - 1) + v(Ey, my + 1, h - my - 1);
+    };
+    let best = 0, bs = punteggio(0);
+    for (let gr = -max; gr <= max; gr += 1) { const s = punteggio(gr); if (s > bs * 1.02) { bs = s; best = gr; } }
+    for (let gr = best - 0.75; gr <= best + 0.75; gr += 0.25) { const s = punteggio(gr); if (s > bs) { bs = s; best = gr; } }
+    return best;
+  }
+  // omografia: porta il rettangolo uscita (0,0)-(W,H) sul quadrilatero q = [TL, TR, BR, BL] dell'immagine
+  function omografia(q, W, H) {
+    const dst = [[0, 0], [W - 1, 0], [W - 1, H - 1], [0, H - 1]], A = [], b = [];
+    for (let i = 0; i < 4; i++) {
+      const [x, y] = dst[i], [u, v] = q[i];
+      A.push([x, y, 1, 0, 0, 0, -u * x, -u * y]); b.push(u);
+      A.push([0, 0, 0, x, y, 1, -v * x, -v * y]); b.push(v);
+    }
+    for (let i = 0; i < 8; i++) { // eliminazione di Gauss
+      let p = i; for (let r = i + 1; r < 8; r++) if (Math.abs(A[r][i]) > Math.abs(A[p][i])) p = r;
+      [A[i], A[p]] = [A[p], A[i]]; [b[i], b[p]] = [b[p], b[i]];
+      for (let r = i + 1; r < 8; r++) { const f = A[r][i] / A[i][i]; for (let k = i; k < 8; k++) A[r][k] -= f * A[i][k]; b[r] -= f * b[i]; }
+    }
+    const h = Array(8).fill(0);
+    for (let i = 7; i >= 0; i--) { let s = b[i]; for (let k = i + 1; k < 8; k++) s -= A[i][k] * h[k]; h[i] = s / A[i][i]; }
+    return h;
+  }
+  // ordina 4 punti in TL, TR, BR, BL
+  function ordinaAngoli(p) {
+    const s = p.map(([x, y]) => x + y), d = p.map(([x, y]) => x - y);
+    return [p[s.indexOf(Math.min(...s))], p[d.indexOf(Math.max(...d))], p[s.indexOf(Math.max(...s))], p[d.indexOf(Math.min(...d))]];
+  }
+  function raddrizza(img, punti, maxLato) {
+    const q = ordinaAngoli(punti), dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
+    let W = Math.round(Math.max(dist(q[0], q[1]), dist(q[3], q[2]))), H = Math.round(Math.max(dist(q[0], q[3]), dist(q[1], q[2])));
+    const k = Math.min(1, (maxLato || 900) / Math.max(W, H)); W = Math.max(2, Math.round(W * k)); H = Math.max(2, Math.round(H * k));
+    const h = omografia(q, W, H), out = { w: W, h: H, data: new Uint8ClampedArray(W * H * 4) };
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      const z = h[6] * x + h[7] * y + 1, sx = (h[0] * x + h[1] * y + h[2]) / z, sy = (h[3] * x + h[4] * y + h[5]) / z, p = campione(img, sx, sy), i = (y * W + x) * 4;
+      out.data[i] = p[0]; out.data[i + 1] = p[1]; out.data[i + 2] = p[2]; out.data[i + 3] = p[3];
+    }
+    return out;
+  }
+  // rilevamento griglia robusto: prova anche a correggere l'inclinazione
+  // quota di quadretti con l'interno uniforme: una griglia vera ~1, una rilevata per caso (foto, prospettiva) molto meno
+  function qualitaGriglia(img, g) {
+    let ok = 0, tot = 0;
+    for (let r = 0; r < g.rows; r++) for (let c = 0; c < g.cols; c++) {
+      const xa = Math.round(g.x0 + (c + 0.3) * g.px), xb = Math.max(xa, Math.round(g.x0 + (c + 0.7) * g.px)), ya = Math.round(g.y0 + (r + 0.3) * g.py), yb = Math.max(ya, Math.round(g.y0 + (r + 0.7) * g.py));
+      let s = 0, s2 = 0, n = 0;
+      for (let y = Math.max(0, ya); y <= Math.min(img.h - 1, yb); y++) for (let x = Math.max(0, xa); x <= Math.min(img.w - 1, xb); x++) { const k = (y * img.w + x) * 4, l = 0.299 * img.data[k] + 0.587 * img.data[k + 1] + 0.114 * img.data[k + 2]; s += l; s2 += l * l; n++; }
+      if (!n) continue; tot++;
+      if (Math.sqrt(Math.max(0, s2 / n - (s / n) ** 2)) < 20) ok++;
+    }
+    return tot ? ok / tot : 0;
+  }
+  function rilevaGrigliaRobusta(img) {
+    const prova = (im) => { const g = rilevaGriglia(im); return g && g.conf >= 3 && g.cols >= 4 && g.rows >= 4 && qualitaGriglia(im, g) >= 0.9 ? { g, img: im } : null; };
+    const ang = stimaAngolo(img, 12);
+    if (Math.abs(ang) >= 0.75) { const r = prova(ruota(img, ang)); if (r) return { ...r, angolo: ang }; }
+    const r0 = prova(img);
+    return r0 ? { ...r0, angolo: 0 } : null;
   }
 
   // PRNG con seme (mulberry32): stesso seme = stesso disegno
@@ -431,6 +625,6 @@
     }
   }
 
-  const api = { normCodice, fmtCodice, colore, cerca, paletteDefault, applicaMotivo, PERLINE, opzioniFoto, lum, campiona, quantizza, paletteDaFoto, rilevaGriglia, leggiQuadretti, MODELLI, applicaModello, rombiAlt, prng, casuale, lettera, nuovaGriglia, ridimensiona, genera, ripetiModulo, conteggi, rp, stimaMisure, lettura, riempi };
+  const api = { normCodice, fmtCodice, colore, cerca, paletteDefault, migliora, pulisci, qualitaGriglia, ruota, stimaAngolo, omografia, raddrizza, rilevaGrigliaRobusta, adattaPeriodo, applicaMotivo, PERLINE, opzioniFoto, lum, campiona, quantizza, paletteDaFoto, rilevaGriglia, leggiQuadretti, MODELLI, applicaModello, rombiAlt, prng, casuale, lettera, nuovaGriglia, ridimensiona, genera, ripetiModulo, conteggi, rp, stimaMisure, lettura, riempi };
   if (typeof module !== 'undefined') module.exports = api; else root.Core = api;
 })(typeof window !== 'undefined' ? window : globalThis);

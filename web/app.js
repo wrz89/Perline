@@ -175,7 +175,8 @@
   $('genera').onclick = () => {
     const rings = ['g-c0', 'g-c1', 'g-c2', 'g-c3'].map((id) => +$(id).value);
     const bordo = { sottile: [0.95, 0.8], medio: [0.9, 0.75], largo: [0.8, 0.6] }[$('g-bordo').value];
-    snapshot(); S.celle = C.genera($('g-tipo').value, S.w, S.h, Math.max(2, +$('g-p').value || 2), rings, { dw: +$('g-dw').value, dh: +$('g-dh').value, tA: bordo[0], tB: bordo[1] }); ridisegna(); disegnaPalette();
+    const ad = $('g-adatta').checked, per = (p) => (ad ? C.adattaPeriodo(p, S.h) : p);
+    snapshot(); S.celle = C.genera($('g-tipo').value, S.w, S.h, per(Math.max(2, +$('g-p').value || 2)), rings, { dw: +$('g-dw').value, dh: per(+$('g-dh').value), tA: bordo[0], tB: bordo[1] }); ridisegna(); disegnaPalette();
   };
   $('ripeti').onclick = () => {
     const p = Math.max(1, Math.min(S.h, +$('g-p').value || 1));
@@ -255,7 +256,7 @@
   // ---- libreria motivi ----
   let motivoSel = null;
   function opzMotivo() {
-    return { c1: +$('m-c1').value, c2: +$('m-c2').value, c3: +$('m-c3').value, sfondo: +$('m-bg').value, scala: +$('m-scala').value,
+    return { c1: +$('m-c1').value, c2: +$('m-c2').value, c3: +$('m-c3').value, sfondo: +$('m-bg').value, scala: $('m-scala').value === 'auto' ? 'auto' : +$('m-scala').value, adatta: $('m-adatta').checked,
       gap: $('m-gap').value === '' ? undefined : +$('m-gap').value, bordo: +$('m-bordo').value };
   }
   function galleriaMotivi() {
@@ -265,7 +266,7 @@
       sel.innerHTML = S.palette.map((c, k) => `<option value="${k}">${C.lettera(k)} - ${esc(c.cod || c.nome)}</option>`).join('');
       sel.value = v !== '' && +v < n ? v : String(def[id]);
     });
-    const o = { ...opzMotivo(), scala: 1, gap: 1, bordo: 0 }, g = $('m-gal');
+    const o = { ...opzMotivo(), scala: 1, gap: 1, bordo: 0, adatta: false }, g = $('m-gal');
     g.innerHTML = '';
     window.MOTIVI.forEach((m) => {
       const cvm = document.createElement('canvas'), N = 14, z = 5; cvm.width = N * z; cvm.height = N * z;
@@ -279,7 +280,7 @@
   ['m-c1', 'm-c2', 'm-c3', 'm-bg'].forEach((id) => $(id).addEventListener('change', galleriaMotivi));
   $('m-applica').onclick = () => {
     const m = window.MOTIVI.find((x) => x.id === motivoSel); if (!m) return msg('Scegli un motivo dalla galleria');
-    const o = opzMotivo(), larg = m.righe[0].length * o.scala;
+    const o = opzMotivo(), larg = m.righe[0].length * (o.scala === 'auto' ? 1 : o.scala);
     snapshot(); S.celle = C.applicaMotivo(m, S.w, S.h, o); ridisegna(); disegnaPalette();
     msg(m.tipo === 'singolo' && larg > S.w ? `Motivo applicato (largo ${larg}, tagliato sulla griglia di ${S.w}): usa un motivo piu' piccolo o allarga la griglia` : 'Motivo applicato: ' + m.nome);
   };
@@ -314,26 +315,71 @@
 
   // ---- foto -> schema ----
   let foto = null; // { w, h, data } RGBA ridotto a max 600 px
+  let fotoOrig = null; // l'immagine come caricata (prima di "Raddrizza")
+  let fotoSchema = null; // immagine usata per leggere i quadretti (corretta se era inclinata)
   let griglia = null; // griglia a quadretti rilevata nell'immagine (o null)
+  let angolo = 0;
+  // da qui in poi l'immagine e' pronta: anteprima, rilevamento della griglia (anche con immagine inclinata)
+  function impostaFoto(img, raddrizzata) {
+    foto = img; griglia = null; fotoSchema = null; angolo = 0;
+    try {
+      // dopo "Raddrizza" sai gia' che e' uno schema: criterio meno severo (la correzione manuale non e' mai perfetta)
+      const r = raddrizzata ? (() => { const g = C.rilevaGriglia(foto); return g && g.conf >= 3 ? { g, img: foto, angolo: 0 } : null; })() : C.rilevaGrigliaRobusta(foto); if (r && r.g.cols >= 5 && r.g.rows >= 5) { griglia = r.g; fotoSchema = r.img; angolo = r.angolo; } } catch (e) { griglia = null; }
+    const c3 = document.createElement('canvas'); c3.width = foto.w; c3.height = foto.h;
+    c3.getContext('2d').putImageData(new ImageData(new Uint8ClampedArray(foto.data), foto.w, foto.h), 0, 0);
+    const an = $('foto-anteprima'), kk = Math.min(1, 220 / foto.w); an.width = Math.max(1, Math.round(foto.w * kk)); an.height = Math.max(1, Math.round(foto.h * kk));
+    an.getContext('2d').drawImage(c3, 0, 0, an.width, an.height); an.style.display = 'block';
+    $('foto-raddrizza').style.display = ''; $('foto-originale').style.display = fotoOrig && fotoOrig !== foto ? '' : 'none';
+    $('foto-tipo').value = 'auto'; aggiornaTipo();
+    if (!(+$('foto-lm').value > 0)) $('foto-lm').value = Math.round(S.w * S.opz.larghezzaMm);
+    fotoOpzioni();
+  }
   $('foto-file').onchange = () => {
     const f = $('foto-file').files[0]; if (!f) return;
     const im = new Image(), url = URL.createObjectURL(f);
     im.onload = () => {
-      const k = Math.min(1, 600 / Math.max(im.naturalWidth, im.naturalHeight));
+      const k = Math.min(1, 800 / Math.max(im.naturalWidth, im.naturalHeight));
       const cv2 = document.createElement('canvas'); cv2.width = Math.max(1, Math.round(im.naturalWidth * k)); cv2.height = Math.max(1, Math.round(im.naturalHeight * k));
       const x = cv2.getContext('2d'); x.drawImage(im, 0, 0, cv2.width, cv2.height);
-      foto = { w: cv2.width, h: cv2.height, data: x.getImageData(0, 0, cv2.width, cv2.height).data };
-      // se l'immagine e' gia' uno schema (si vedono i quadretti) la riconosce e legge ogni quadretto
-      try { const g = C.rilevaGriglia(foto); griglia = g && g.conf >= 3 && g.cols >= 5 && g.rows >= 5 ? g : null; } catch (e) { griglia = null; }
-      $('foto-tipo').value = 'auto'; aggiornaTipo();
-      const an = $('foto-anteprima'), kk = Math.min(1, 220 / cv2.width); an.width = Math.round(cv2.width * kk); an.height = Math.round(cv2.height * kk);
-      an.getContext('2d').drawImage(cv2, 0, 0, an.width, an.height); an.style.display = 'block';
-      if (!(+$('foto-lm').value > 0)) $('foto-lm').value = Math.round(S.w * S.opz.larghezzaMm);
-      fotoOpzioni();
+      fotoOrig = { w: cv2.width, h: cv2.height, data: x.getImageData(0, 0, cv2.width, cv2.height).data };
+      impostaFoto(fotoOrig);
       URL.revokeObjectURL(url); msg('Foto caricata: ' + cv2.width + ' × ' + cv2.height + ' px');
     };
     im.onerror = () => { URL.revokeObjectURL(url); msg('Impossibile leggere l\'immagine'); };
     im.src = url;
+  };
+  $('foto-originale').onclick = () => { if (fotoOrig) { impostaFoto(fotoOrig); msg('Immagine originale ripristinata'); } };
+
+  // ---- raddrizzare: clic sui 4 angoli dello schema (foto di sbieco, schermo, foglio) ----
+  let radPunti = [], radDrag = -1;
+  const radCv = $('rad-cv');
+  function radDisegna() {
+    const x = radCv.getContext('2d');
+    x.putImageData(new ImageData(new Uint8ClampedArray(foto.data), foto.w, foto.h), 0, 0);
+    x.lineWidth = Math.max(2, foto.w / 250); x.strokeStyle = '#e6007e'; x.fillStyle = '#e6007e';
+    if (radPunti.length > 1) { x.beginPath(); radPunti.forEach((p, i) => (i ? x.lineTo(p[0], p[1]) : x.moveTo(p[0], p[1]))); if (radPunti.length === 4) x.closePath(); x.stroke(); }
+    radPunti.forEach((p) => { x.beginPath(); x.arc(p[0], p[1], Math.max(5, foto.w / 90), 0, 7); x.fill(); });
+    $('rad-ok').disabled = radPunti.length !== 4;
+  }
+  function radPos(e) { const r = radCv.getBoundingClientRect(); return [((e.clientX - r.left) * radCv.width) / r.width, ((e.clientY - r.top) * radCv.height) / r.height]; }
+  radCv.addEventListener('mousedown', (e) => {
+    const p = radPos(e), tol = (radCv.width / 40) ** 2;
+    radDrag = radPunti.findIndex((q) => (q[0] - p[0]) ** 2 + (q[1] - p[1]) ** 2 < tol);
+    if (radDrag < 0 && radPunti.length < 4) { radPunti.push(p); radDrag = radPunti.length - 1; }
+    radDisegna();
+  });
+  radCv.addEventListener('mousemove', (e) => { if (radDrag >= 0) { radPunti[radDrag] = radPos(e); radDisegna(); } });
+  window.addEventListener('mouseup', () => { radDrag = -1; });
+  $('foto-raddrizza').onclick = () => {
+    if (!foto) return msg('Carica prima una foto');
+    radCv.width = foto.w; radCv.height = foto.h; radPunti = []; $('rad').style.display = 'flex'; radDisegna();
+  };
+  $('rad-reset').onclick = () => { radPunti = []; radDisegna(); };
+  $('rad-annulla').onclick = () => { $('rad').style.display = 'none'; };
+  $('rad-ok').onclick = () => {
+    if (radPunti.length !== 4) return;
+    const dr = C.raddrizza(foto, radPunti, 900); $('rad').style.display = 'none';
+    impostaFoto(dr, true); msg('Immagine raddrizzata: ' + dr.w + ' × ' + dr.h + ' px');
   };
   $('foto-colori').onchange = () => { $('foto-n-riga').style.display = $('foto-colori').value === 'foto' ? '' : 'none'; };
   $('foto-prop').onclick = () => {
@@ -346,7 +392,7 @@
   function tipoFoto() { const t = $('foto-tipo').value; return t === 'auto' ? (griglia ? 'schema' : 'foto') : t; }
   function aggiornaTipo() {
     const t = tipoFoto();
-    $('foto-info').textContent = !foto ? '' : (griglia ? `Rilevata griglia a quadretti: ${griglia.cols} × ${griglia.rows}` : 'Nessuna griglia a quadretti rilevata: tratto l\'immagine come foto');
+    $('foto-info').textContent = !foto ? '' : (griglia ? `Rilevata griglia a quadretti: ${griglia.cols} × ${griglia.rows}${Math.abs(angolo) >= 0.75 ? ' (inclinazione corretta di ' + angolo.toFixed(1) + '°)' : ''}` : 'Nessuna griglia a quadretti rilevata: tratto l\'immagine come foto (se e\' uno schema ripreso di sbieco usa Raddrizza)');
     $('foto-blocco-foto').style.display = t === 'schema' ? 'none' : '';
     $('foto-blocco-schema').style.display = t === 'schema' ? '' : 'none';
     $('foto-prop').style.display = t === 'schema' ? 'none' : '';
@@ -360,7 +406,7 @@
     if (cf > 0 && rf > 0) g = { x0: 0, y0: 0, px: foto.w / cf, py: foto.h / rf, cols: cf, rows: rf };
     if (!g) return msg('Griglia non rilevata: inserisci colonne e righe a mano');
     if (g.cols > 150 || g.rows > 1000) return msg('Schema troppo grande (massimo 150 × 1000)');
-    const camp = C.leggiQuadretti(foto, g);
+    const camp = C.leggiQuadretti(cf > 0 && rf > 0 ? foto : (fotoSchema || foto), g);
     let palette = S.palette;
     if ($('foto-colori').value === 'foto') {
       if (!confirm('I colori verranno ricavati dallo schema e abbinati ai Delica: la palette attuale sara\' sostituita. Continuare?')) return;
@@ -377,10 +423,11 @@
     if (!foto) return msg('Carica prima una foto');
     if (tipoFoto() === 'schema') return convertiSchema();
     const camp = C.campiona(foto, S.w, S.h, { modo: $('foto-modo').value, ruota: $('foto-ruota').checked, bw: S.opz.larghezzaMm, bh: S.opz.altezzaMm });
+    C.migliora(camp, S.w, S.h, { livelli: $('foto-liv').checked, saturazione: +$('foto-sat').value / 100, nitidezza: +$('foto-nit').value / 100, sfondo: $('foto-bgf').checked });
     let palette = S.palette;
     if ($('foto-colori').value === 'foto') {
       if (!confirm('I colori verranno ricavati dalla foto e abbinati ai Delica: la palette attuale sara\' sostituita. Continuare?')) return;
-      palette = C.paletteDaFoto(camp, S.w, S.h, Math.max(2, Math.min(12, +$('foto-n').value || 4)), 7);
+      palette = C.paletteDaFoto(camp, S.w, S.h, Math.max(2, Math.min(12, +$('foto-n').value || 5)), 7);
       if (!palette.length) return msg('Nessun colore ricavato');
     }
     // sfondo (bande del modo "adatta"): il colore piu' chiaro
@@ -389,6 +436,7 @@
     snapshot();
     S.palette = palette.map((p) => ({ ...p }));
     S.celle = C.quantizza(camp, S.w, S.h, S.palette.map((p) => p.hex), { dither: $('foto-dither').checked, contrasto: +$('foto-contr').value / 100, sfondo: sf });
+    if (!$('foto-dither').checked) C.pulisci(S.celle, +$('foto-pul').value);
     colore = 0; sync(); msg('Foto convertita sul layout ' + S.w + ' × ' + S.h);
   }
   $('foto-conv').onclick = convertiFoto;
