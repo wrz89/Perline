@@ -149,6 +149,25 @@
     return out;
   }
 
+  // Misure indicative (mm, larghezza x lunghezza) dei Delica: variano un po' tra fonti e lotti, quindi sono modificabili.
+  const PERLINE = [
+    { id: '15', nome: 'Delica 15/0', bw: 1.3, bh: 1.15 },
+    { id: '11', nome: 'Delica 11/0', bw: 1.6, bh: 1.3 },
+    { id: '10', nome: 'Delica 10/0', bw: 2.1, bh: 1.7 },
+    { id: '8', nome: 'Delica 8/0', bw: 3.0, bh: 2.7 },
+  ];
+  // Per una foto da far stare su una larghezza (mm) calcola, per ogni misura di perlina, colonne x righe a foto intera.
+  // dettaglio = colonne minime desiderate: la consigliata e' la perlina piu' grande che le raggiunge (altrimenti la piu' piccola).
+  function opzioniFoto(larghezzaMm, iw, ih, misure, dettaglio) {
+    const out = misure.map((m) => {
+      const cols = Math.max(1, Math.round(larghezzaMm / m.bw)), rows = Math.max(1, Math.round((larghezzaMm * ih) / iw / m.bh));
+      return { ...m, cols, rows, tot: cols * rows, lungCm: (rows * m.bh) / 10 };
+    });
+    const ok = out.filter((o) => o.cols >= dettaglio).sort((a, b) => b.bw - a.bw)[0] || out.slice().sort((a, b) => a.bw - b.bw)[0];
+    out.forEach((o) => { o.consigliata = o === ok; });
+    return out;
+  }
+
   // PRNG con seme (mulberry32): stesso seme = stesso disegno
   function prng(seed) {
     let a = (seed >>> 0) || 1;
@@ -298,6 +317,6 @@
     }
   }
 
-  const api = { normCodice, fmtCodice, colore, cerca, paletteDefault, lum, campiona, quantizza, paletteDaFoto, MODELLI, applicaModello, rombiAlt, prng, casuale, lettera, nuovaGriglia, ridimensiona, genera, ripetiModulo, conteggi, rp, stimaMisure, lettura, riempi };
+  const api = { normCodice, fmtCodice, colore, cerca, paletteDefault, PERLINE, opzioniFoto, lum, campiona, quantizza, paletteDaFoto, MODELLI, applicaModello, rombiAlt, prng, casuale, lettera, nuovaGriglia, ridimensiona, genera, ripetiModulo, conteggi, rp, stimaMisure, lettura, riempi };
   if (typeof module !== 'undefined') module.exports = api; else root.Core = api;
 })(typeof window !== 'undefined' ? window : globalThis);

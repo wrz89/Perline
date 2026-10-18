@@ -64,8 +64,10 @@ footer{padding:8px 14px;color:var(--mut);font-size:12px}
 <aside>
  <div class="card"><h2>Griglia</h2>
   <label>Tecnica <select id="tecnica"><option value="telaio">Telaio</option><option value="peyote">Peyote (colonne sfalsate)</option></select></label>
-  <label>Larghezza (perline) <input type="number" id="w" min="1" max="60"></label>
-  <label>Lunghezza (righe) <input type="number" id="h" min="1" max="800"></label>
+  <label>Larghezza (perline) <input type="number" id="w" min="1" max="150"></label>
+  <label>Lunghezza (righe) <input type="number" id="h" min="1" max="1000"></label>
+  <label>Perlina: larghezza (mm) <input type="number" id="bw" min="0.5" max="6" step="0.05"></label>
+  <label>Perlina: lunghezza (mm) <input type="number" id="bh" min="0.5" max="6" step="0.05"></label>
   <label>Zoom <input type="range" id="zoom" min="10" max="40" value="22"></label>
   <label><span>Lettere nelle celle</span><input type="checkbox" id="lettere" checked></label>
   <button id="ridim">Applica misure</button>
@@ -85,6 +87,9 @@ footer{padding:8px 14px;color:var(--mut);font-size:12px}
  <div class="card"><h2>Da foto</h2>
   <input type="file" id="foto-file" accept="image/*" style="width:100%">
   <canvas id="foto-anteprima" style="display:none;max-width:100%;margin:6px 0;border:1px solid var(--line)"></canvas>
+  <label>Larghezza del lavoro (mm) <input type="number" id="foto-lm" min="5" max="400" placeholder="es. 20"></label>
+  <label>Dettaglio <select id="foto-det"><option value="20">Basso (≥ 20 colonne)</option><option value="30" selected>Medio (≥ 30)</option><option value="50">Alto (≥ 50)</option></select></label>
+  <div id="foto-opz"></div>
   <label>Inquadratura <select id="foto-modo"><option value="riempi">Riempi (ritaglia)</option><option value="adatta">Adatta (bande vuote)</option></select></label>
   <label><span>Ruota di 90°</span><input type="checkbox" id="foto-ruota"></label>
   <label><span>Sfumatura (dithering)</span><input type="checkbox" id="foto-dither"></label>

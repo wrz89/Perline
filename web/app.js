@@ -17,7 +17,7 @@
 
   // ---- disegno ----
   function geom(z) {
-    const cw = z, ch = Math.round(z * 0.8), margL = 44, margT = 26;
+    const cw = z, ch = Math.max(6, Math.round((z * S.opz.altezzaMm) / S.opz.larghezzaMm)), margL = 44, margT = 26;
     return { cw, ch, margL, margT };
   }
   function disegna(c2d, z, opt) {
@@ -144,14 +144,20 @@
 
   // ---- controlli ----
   function sync() {
-    $('nome').value = S.nome; $('tecnica').value = S.tecnica; $('w').value = S.w; $('h').value = S.h;
+    $('nome').value = S.nome; $('tecnica').value = S.tecnica; $('w').value = S.w; $('h').value = S.h; $('bw').value = S.opz.larghezzaMm; $('bh').value = S.opz.altezzaMm; fotoOpzioni();
     disegnaPalette(); ridisegna();
   }
+  ['bw', 'bh'].forEach((id) => $(id).addEventListener('change', () => {
+    const bw = +$('bw').value, bh = +$('bh').value;
+    if (bw > 0 && bh > 0) { S.opz.larghezzaMm = bw; S.opz.altezzaMm = bh; ridisegna(); fotoOpzioni(); }
+  }));
   $('tecnica').onchange = () => { S.tecnica = $('tecnica').value; ridisegna(); };
   $('lettere').onchange = ridisegna;
   $('zoom').oninput = () => { zoom = +$('zoom').value; ridisegna(); };
   $('ridim').onclick = () => {
-    const w = Math.max(1, Math.min(60, +$('w').value || 1)), h = Math.max(1, Math.min(800, +$('h').value || 1));
+    const w = Math.max(1, Math.min(150, +$('w').value || 1)), h = Math.max(1, Math.min(1000, +$('h').value || 1));
+    const bw = +$('bw').value, bh = +$('bh').value;
+    if (bw > 0 && bh > 0) { S.opz.larghezzaMm = bw; S.opz.altezzaMm = bh; }
     const cnt = C.conteggi(S.celle, S.palette.length);
     snapshot(); S.celle = C.ridimensiona(S.celle, w, h, cnt.indexOf(Math.max(...cnt)));
     S.w = w; S.h = h; sync();
@@ -286,6 +292,8 @@
       foto = { w: cv2.width, h: cv2.height, data: x.getImageData(0, 0, cv2.width, cv2.height).data };
       const an = $('foto-anteprima'), kk = Math.min(1, 220 / cv2.width); an.width = Math.round(cv2.width * kk); an.height = Math.round(cv2.height * kk);
       an.getContext('2d').drawImage(cv2, 0, 0, an.width, an.height); an.style.display = 'block';
+      if (!(+$('foto-lm').value > 0)) $('foto-lm').value = Math.round(S.w * S.opz.larghezzaMm);
+      fotoOpzioni();
       URL.revokeObjectURL(url); msg('Foto caricata: ' + cv2.width + ' × ' + cv2.height + ' px');
     };
     im.onerror = () => { URL.revokeObjectURL(url); msg('Impossibile leggere l\'immagine'); };
@@ -295,10 +303,10 @@
   $('foto-prop').onclick = () => {
     if (!foto) return msg('Carica prima una foto');
     const iw = $('foto-ruota').checked ? foto.h : foto.w, ih = $('foto-ruota').checked ? foto.w : foto.h;
-    S.h = Math.max(1, Math.min(800, Math.round((S.w * S.opz.larghezzaMm * ih) / (iw * S.opz.altezzaMm))));
+    S.h = Math.max(1, Math.min(1000, Math.round((S.w * S.opz.larghezzaMm * ih) / (iw * S.opz.altezzaMm))));
     snapshot(); S.celle = C.ridimensiona(S.celle, S.w, S.h, 0); sync(); msg('Lunghezza adattata alla foto: ' + S.h + ' righe');
   };
-  $('foto-conv').onclick = () => {
+  function convertiFoto() {
     if (!foto) return msg('Carica prima una foto');
     const camp = C.campiona(foto, S.w, S.h, { modo: $('foto-modo').value, ruota: $('foto-ruota').checked, bw: S.opz.larghezzaMm, bh: S.opz.altezzaMm });
     let palette = S.palette;
@@ -314,7 +322,27 @@
     S.palette = palette.map((p) => ({ ...p }));
     S.celle = C.quantizza(camp, S.w, S.h, S.palette.map((p) => p.hex), { dither: $('foto-dither').checked, contrasto: +$('foto-contr').value / 100, sfondo: sf });
     colore = 0; sync(); msg('Foto convertita sul layout ' + S.w + ' × ' + S.h);
-  };
+  }
+  $('foto-conv').onclick = convertiFoto;
+  // misure consigliate per far stare la foto su una larghezza: calcolo automatico (al caricamento e a ogni cambio)
+  function fotoOpzioni() {
+    const box = $('foto-opz');
+    if (!foto) { box.innerHTML = ''; return; }
+    const lm = +$('foto-lm').value;
+    if (!(lm > 0)) { box.innerHTML = ''; return; }
+    const rot = $('foto-ruota').checked, iw = rot ? foto.h : foto.w, ih = rot ? foto.w : foto.h;
+    const misure = C.PERLINE.concat([{ id: 'mia', nome: 'La mia (' + S.opz.larghezzaMm + ' × ' + S.opz.altezzaMm + ' mm)', bw: S.opz.larghezzaMm, bh: S.opz.altezzaMm }]);
+    const op = C.opzioniFoto(lm, iw, ih, misure, +$('foto-det').value);
+    box.innerHTML = '<table><tr><th>Perlina</th><th>Griglia</th><th>Perline</th><th>Lungh.</th><th></th></tr>' +
+      op.map((o) => `<tr${o.consigliata ? ' style="background:#e3efed"' : ''}><td>${o.consigliata ? '★ ' : ''}${esc(o.nome)}<br><small>${o.bw} × ${o.bh} mm</small></td><td>${o.cols} × ${o.rows}</td><td>${o.tot}</td><td>${num(o.lungCm, 1)} cm</td><td><button data-id="${o.id}">Usa</button></td></tr>`).join('') + '</table>' +
+      '<small>★ = consigliata per il dettaglio scelto. "Usa" imposta perlina e griglia e converte la foto.</small>';
+    box.querySelectorAll('button').forEach((bt) => bt.addEventListener('click', () => {
+      const o = op.find((x) => x.id === bt.dataset.id);
+      snapshot(); S.opz.larghezzaMm = o.bw; S.opz.altezzaMm = o.bh; S.w = Math.min(150, o.cols); S.h = Math.min(1000, o.rows);
+      S.celle = C.ridimensiona(S.celle, S.w, S.h, 0); $('foto-modo').value = 'riempi'; sync(); convertiFoto();
+    }));
+  }
+  ['foto-lm', 'foto-det', 'foto-ruota'].forEach((id) => $(id).addEventListener('input', fotoOpzioni));
 
   // ---- stampa ----
   $('stampa').onclick = () => {

@@ -35,6 +35,9 @@
 - **Ruota di 90°** è utile per i braccialetti stretti e lunghi: una foto in verticale va ruotata per seguire la lunghezza.
 - **Colori**: *Quelli della palette* usa solo i colori che hai già (comodo se hai le perline); *Ricavali dalla foto* sceglie da 2 a 12 colori dominanti e li abbina ai Delica più vicini, sostituendo la palette.
 - **Sfumatura** simula i toni intermedi a punti (bene per foto, meno per loghi); **Contrasto** schiarisce o scurisce. Con poche perline le foto con soggetti semplici e contrasti netti vengono meglio.
+- **Far stare la foto su una larghezza precisa:** scrivi la **Larghezza del lavoro (mm)** e il livello di **Dettaglio**. Appena carichi la foto (e a ogni modifica) l'app calcola da sola, per ogni misura di perlina (Delica 15/0, 11/0, 10/0, 8/0 e la tua), quante colonne × righe servono, quante perline in totale e quanto viene lungo il lavoro. La ★ indica la perlina più grande che raggiunge il dettaglio scelto.
+- **Usa** imposta perlina e griglia e converte subito la foto. Più la perlina è piccola, più colonne entrano nella stessa larghezza e più la foto è dettagliata (ma servono più perline e più tempo).
+- Le misure delle perline (11/0 = 1,6 × 1,3 mm, 15/0 = 1,3 × 1,15 mm, 10/0 = 2,1 × 1,7 mm, 8/0 = 3,0 × 2,7 mm) sono indicative e cambiano un po' tra produttori e lotti: puoi correggerle in **Griglia → Perlina**. Il catalogo colori integrato è quello del Delica 11/0; per 15/0, 10/0 e 8/0 i codici hanno prefissi diversi (DBS, DBM, DBL), quindi verifica il codice sulla bustina.
 - Dopo la conversione puoi ritoccare a mano, annullare (Ctrl+Z) e stampare come ogni altro schema.
 
 ## Generatore casuale

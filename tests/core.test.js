@@ -72,4 +72,12 @@ assert.deepStrictEqual(ga[0], Array(10).fill(2)); assert.ok(ga[5].includes(0) &&
 // palette automatica: 2 colori dalla foto, abbinati a codici Delica distinti
 const pf = C.paletteDaFoto(camp, 10, 5, 2, 1);
 assert.strictEqual(pf.length, 2); assert.notStrictEqual(pf[0].cod, pf[1].cod); assert.ok(/^DB \d{3}/.test(pf[0].cod));
+// foto su larghezza fissa: 100 mm, foto 2:1 (200x100)
+const of = C.opzioniFoto(100, 200, 100, C.PERLINE, 30);
+const o11 = of.find((x) => x.id === '11'), o15 = of.find((x) => x.id === '15');
+assert.strictEqual(o11.cols, 63); assert.strictEqual(o11.rows, 38); assert.strictEqual(o11.tot, 63 * 38);
+assert.strictEqual(o15.cols, 77);
+assert.strictEqual(of.filter((x) => x.consigliata).length, 1);
+assert.strictEqual(of.find((x) => x.consigliata).id, '8'); // 100/3 = 33 colonne >= 30: la piu' grande che basta
+assert.strictEqual(C.opzioniFoto(20, 100, 100, C.PERLINE, 60).find((x) => x.consigliata).id, '15'); // nessuna arriva a 60: la piu' piccola
 console.log('core ok');
